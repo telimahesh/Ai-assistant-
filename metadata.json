@@ -1,0 +1,5 @@
+{
+  "name": "Zoya AI Assistant",
+  "description": "A sassy, witty, and flirty voice-to-voice AI assistant named Zoya.",
+  "requestFramePermissions": ["microphone"]
+}
