@@ -21,9 +21,13 @@
         "uid": {
           "type": "string",
           "description": "The UID of the user who owns this message."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "The ID of the session this message belongs to."
         }
       },
-      "required": ["text", "isModel", "timestamp", "uid"]
+      "required": ["text", "isModel", "timestamp", "uid", "sessionId"]
     },
     "VoiceProfile": {
       "title": "VoiceProfile",

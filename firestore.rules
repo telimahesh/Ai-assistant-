@@ -9,6 +9,7 @@
 //   - isModel: bool (required) - Sender identity
 //   - timestamp: timestamp (required) - Creation time
 //   - uid: string (required) - Owner UID
+//   - sessionId: string (required) - Linked session ID
 //
 // Collection: profiles
 // Document ID: auto-generated
@@ -55,12 +56,13 @@ service cloud.firestore {
 
     // Domain Validators
     function isValidMessage(data) {
-      return data.keys().hasAll(['text', 'isModel', 'timestamp', 'uid']) &&
-             data.keys().hasOnly(['text', 'isModel', 'timestamp', 'uid']) &&
+      return data.keys().hasAll(['text', 'isModel', 'timestamp', 'uid', 'sessionId']) &&
+             data.keys().hasOnly(['text', 'isModel', 'timestamp', 'uid', 'sessionId']) &&
              data.text is string && data.text.size() > 0 && data.text.size() <= 5000 &&
              data.isModel is bool &&
              data.timestamp is timestamp &&
-             data.uid is string && data.uid == request.auth.uid;
+             data.uid is string && data.uid == request.auth.uid &&
+             data.sessionId is string;
     }
 
     function isValidProfile(data) {
