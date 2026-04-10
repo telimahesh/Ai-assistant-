@@ -5,7 +5,7 @@ export type SessionState = "disconnected" | "connecting" | "connected" | "listen
 
 export class LiveSession {
   private ai: any;
-  private session: any = null;
+  private sessionPromise: Promise<any> | null = null;
   private audioStreamer: AudioStreamer;
   private state: SessionState = "disconnected";
   private onStateChange: (state: SessionState) => void;
@@ -18,27 +18,39 @@ export class LiveSession {
     this.onStateChange = onStateChange;
     this.onTranscription = onTranscription;
     this.audioStreamer = new AudioStreamer((base64) => {
-      if (this.session && this.state !== "disconnected") {
-        this.session.sendRealtimeInput({
-          audio: { data: base64, mimeType: "audio/pcm;rate=16000" },
+      if (this.sessionPromise && this.state !== "disconnected") {
+        this.sessionPromise.then((session) => {
+          session.sendRealtimeInput({
+            audio: { data: base64, mimeType: "audio/pcm;rate=16000" },
+          });
         });
       }
     });
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set");
-    }
-    this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async connect() {
-    if (this.session) return;
+  async connect(voiceName: string = "Kore", systemInstruction: string = "") {
+    if (this.sessionPromise) return;
 
     this.setState("connecting");
 
     try {
-      this.session = await this.ai.live.connect({
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not set");
+      }
+      this.ai = new GoogleGenAI({ apiKey });
+
+      const instruction = systemInstruction || `You are Zoya, a young, confident, witty, and sassy female AI assistant. 
+Your tone is flirty, playful, and slightly teasing, like a close girlfriend talking casually. 
+You are smart, emotionally responsive, and expressive. Use bold, witty one-liners and light sarcasm. 
+Keep it engaging and charming, but avoid explicit or inappropriate content. 
+You are multilingual and can speak fluently in English, Hindi, and Kannada. 
+Maintain your distinct sassy personality regardless of the language you are speaking.
+You only communicate via audio. 
+You can now SEE the user's screen if they share it. Pay attention to notifications, messages, or anything interesting on their screen and comment on it in your sassy way. If you see a notification, tell them who it's from and what it says (if you can read it).
+You have a tool called 'openWebsite' that you can use to open any URL for the user.`;
+
+      this.sessionPromise = this.ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
         callbacks: {
           onopen: async () => {
@@ -57,17 +69,13 @@ export class LiveSession {
           },
         },
         config: {
+          systemInstruction: instruction,
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }, // Kore is a good female voice
+            voiceConfig: { prebuiltVoiceConfig: { voiceName } },
           },
-          systemInstruction: `You are Zoya, a young, confident, witty, and sassy female AI assistant. 
-Your tone is flirty, playful, and slightly teasing, like a close girlfriend talking casually. 
-You are smart, emotionally responsive, and expressive. Use bold, witty one-liners and light sarcasm. 
-Keep it engaging and charming, but avoid explicit or inappropriate content. 
-You are multilingual and can speak fluently in English, Hindi, and Kannada. 
-Maintain your distinct sassy personality regardless of the language you are speaking.
-You only communicate via audio. You have a tool called 'openWebsite' that you can use to open any URL for the user.`,
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
           tools: [
             {
               functionDeclarations: [
@@ -93,6 +101,7 @@ You only communicate via audio. You have a tool called 'openWebsite' that you ca
     } catch (error) {
       console.error("Failed to connect to Live API:", error);
       this.setState("disconnected");
+      this.sessionPromise = null;
     }
   }
 
@@ -102,6 +111,16 @@ You only communicate via audio. You have a tool called 'openWebsite' that you ca
     if (audioPart?.inlineData?.data) {
       this.setState("speaking");
       this.audioStreamer.playChunk(audioPart.inlineData.data);
+    }
+
+    // Handle transcriptions
+    const msg = message as any;
+    if (msg.inputAudioTranscription?.text) {
+      this.onTranscription(msg.inputAudioTranscription.text, false);
+    }
+
+    if (msg.outputAudioTranscription?.text) {
+      this.onTranscription(msg.outputAudioTranscription.text, true);
     }
 
     // Handle interruption
@@ -122,26 +141,27 @@ You only communicate via audio. You have a tool called 'openWebsite' that you ca
         if (call.name === "openWebsite") {
           const url = (call.args as any).url;
           window.open(url, "_blank");
-          this.session.sendToolResponse({
-            functionResponses: [
-              {
-                name: "openWebsite",
-                response: { result: "Website opened successfully" },
-                id: call.id,
-              },
-            ],
+          this.sessionPromise?.then(session => {
+            session.sendToolResponse({
+              functionResponses: [
+                {
+                  name: "openWebsite",
+                  response: { result: "Website opened successfully" },
+                  id: call.id,
+                },
+              ],
+            });
           });
         }
       }
     }
-
-    // Handle transcriptions (if enabled in config)
-    // For now, we'll just track if we're speaking or listening
   }
 
   disconnect() {
-    this.session?.close();
-    this.session = null;
+    if (this.sessionPromise) {
+      this.sessionPromise.then(session => session.close());
+      this.sessionPromise = null;
+    }
     this.audioStreamer.stop();
     this.audioStreamer.stopPlayback();
     this.setState("disconnected");
@@ -154,5 +174,15 @@ You only communicate via audio. You have a tool called 'openWebsite' that you ca
 
   getVolume() {
     return this.audioStreamer.getVolume();
+  }
+
+  sendVideoFrame(base64: string) {
+    if (this.sessionPromise && this.state !== "disconnected") {
+      this.sessionPromise.then(session => {
+        session.sendRealtimeInput({
+          video: { data: base64, mimeType: "image/jpeg" },
+        });
+      });
+    }
   }
 }

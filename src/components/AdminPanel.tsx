@@ -1,0 +1,393 @@
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  Activity, 
+  Terminal, 
+  Cpu, 
+  Database, 
+  Settings, 
+  X, 
+  BarChart3, 
+  MessageSquare, 
+  ShieldAlert,
+  Zap,
+  RefreshCw
+} from "lucide-react";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from "recharts";
+import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
+
+interface AdminPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  history: any[];
+  sessionState: string;
+}
+
+const mockData = [
+  { time: "09:00", requests: 12, latency: 120 },
+  { time: "10:00", requests: 18, latency: 145 },
+  { time: "11:00", requests: 15, latency: 130 },
+  { time: "12:00", requests: 25, latency: 160 },
+  { time: "13:00", requests: 30, latency: 180 },
+  { time: "14:00", requests: 22, latency: 150 },
+  { time: "15:00", requests: 28, latency: 170 },
+];
+
+export function AdminPanel({ isOpen, onClose, history, sessionState }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<"monitor" | "logs" | "config">("monitor");
+  const [uptime, setUptime] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUptime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100]"
+          />
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-x-0 bottom-0 top-12 bg-[#0a0a0a] border-t border-white/10 z-[101] flex flex-col overflow-hidden shadow-2xl"
+          >
+            {/* Admin Header */}
+            <div className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-zinc-900/50">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
+                  <ShieldAlert className="w-4 h-4 text-red-500" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500">
+                    Admin Protocol Active
+                  </span>
+                </div>
+                <div className="h-4 w-px bg-white/10" />
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-zinc-500" />
+                  <span className="text-xs font-mono text-zinc-400">ZOYA_CORE_v1.2.4</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-6">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">System Uptime</span>
+                  <span className="text-sm font-mono text-cyan-400">{formatUptime(uptime)}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="text-zinc-500 hover:text-white hover:bg-white/10 rounded-full"
+                >
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Admin Layout */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Sidebar Navigation */}
+              <div className="w-64 border-r border-white/10 flex flex-col p-4 gap-2 bg-zinc-900/20">
+                <button
+                  onClick={() => setActiveTab("monitor")}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                    activeTab === "monitor" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                  )}
+                >
+                  <Activity className="w-5 h-5" />
+                  <span className="text-sm font-medium">System Monitor</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("logs")}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                    activeTab === "logs" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                  )}
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  <span className="text-sm font-medium">Live Logs</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("config")}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                    activeTab === "config" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                  )}
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="text-sm font-medium">Core Config</span>
+                </button>
+
+                <div className="mt-auto p-4 bg-zinc-900/40 rounded-2xl border border-white/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500">CPU Load</span>
+                    <span className="text-[10px] font-mono text-cyan-400">12%</span>
+                  </div>
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      animate={{ width: "12%" }}
+                      className="h-full bg-cyan-500" 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-4 mb-2">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500">Memory</span>
+                    <span className="text-[10px] font-mono text-pink-500">642MB</span>
+                  </div>
+                  <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <motion.div 
+                      animate={{ width: "45%" }}
+                      className="h-full bg-pink-500" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content */}
+              <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
+                {activeTab === "monitor" && (
+                  <div className="space-y-8">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-4 gap-6">
+                      {[
+                        { label: "Total Requests", value: "1,284", icon: Zap, color: "text-yellow-400" },
+                        { label: "Avg Latency", value: "142ms", icon: RefreshCw, color: "text-cyan-400" },
+                        { label: "Active Sessions", value: "42", icon: MessageSquare, color: "text-green-400" },
+                        { label: "Core Status", value: "OPTIMAL", icon: Cpu, color: "text-pink-500" },
+                      ].map((stat, i) => (
+                        <div key={i} className="p-6 bg-zinc-900/50 border border-white/5 rounded-3xl flex flex-col gap-4">
+                          <div className="flex items-center justify-between">
+                            <stat.icon className={cn("w-5 h-5", stat.color)} />
+                            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Real-time</span>
+                          </div>
+                          <div>
+                            <span className="text-2xl font-black tracking-tighter">{stat.value}</span>
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mt-1">{stat.label}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Chart Area */}
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl flex flex-col gap-6">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Request Volume</h3>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500" />
+                            <span className="text-[10px] font-mono text-zinc-500">Requests/hr</span>
+                          </div>
+                        </div>
+                        <div className="h-64 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={mockData}>
+                              <defs>
+                                <linearGradient id="colorReq" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                              <XAxis 
+                                dataKey="time" 
+                                stroke="#ffffff20" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <YAxis 
+                                stroke="#ffffff20" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ color: '#06b6d4', fontSize: '12px' }}
+                              />
+                              <Area 
+                                type="monotone" 
+                                dataKey="requests" 
+                                stroke="#06b6d4" 
+                                fillOpacity={1} 
+                                fill="url(#colorReq)" 
+                                strokeWidth={2}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl flex flex-col gap-6">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Latency Monitor</h3>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-pink-500" />
+                            <span className="text-[10px] font-mono text-zinc-500">ms / request</span>
+                          </div>
+                        </div>
+                        <div className="h-64 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={mockData}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                              <XAxis 
+                                dataKey="time" 
+                                stroke="#ffffff20" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <YAxis 
+                                stroke="#ffffff20" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false} 
+                              />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                                itemStyle={{ color: '#ec4899', fontSize: '12px' }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="latency" 
+                                stroke="#ec4899" 
+                                strokeWidth={2} 
+                                dot={{ fill: '#ec4899', strokeWidth: 2, r: 4 }}
+                                activeDot={{ r: 6, strokeWidth: 0 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "logs" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Live Interaction Stream</h3>
+                      <div className="flex items-center gap-4">
+                        <span className="text-[10px] font-mono text-zinc-500">Auto-scroll: ON</span>
+                        <div className="h-4 w-px bg-white/10" />
+                        <span className="text-[10px] font-mono text-green-500">STREAMING_ACTIVE</span>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-black/40 border border-white/5 rounded-3xl p-6 font-mono text-xs space-y-3 min-h-[500px]">
+                      {history.length === 0 ? (
+                        <div className="text-zinc-700 italic">Waiting for incoming data...</div>
+                      ) : (
+                        history.map((msg, i) => (
+                          <div key={i} className="flex gap-4 group">
+                            <span className="text-zinc-700 shrink-0">[{msg.timestamp.toLocaleTimeString()}]</span>
+                            <span className={cn(
+                              "font-bold shrink-0",
+                              msg.isModel ? "text-pink-500" : "text-cyan-400"
+                            )}>
+                              {msg.isModel ? "ZOYA:" : "USER:"}
+                            </span>
+                            <span className="text-zinc-300">{msg.text}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "config" && (
+                  <div className="max-w-2xl space-y-8">
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl space-y-6">
+                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Persona Configuration</h3>
+                      
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">System Instruction</label>
+                        <textarea 
+                          className="w-full h-48 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-mono text-zinc-300 focus:border-cyan-500 outline-none transition-colors"
+                          defaultValue={`You are Zoya, a young, confident, witty, and sassy female AI assistant...`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Temperature</label>
+                          <input type="range" className="w-full accent-cyan-500" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Top-P</label>
+                          <input type="range" className="w-full accent-pink-500" />
+                        </div>
+                      </div>
+
+                      <Button className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs">
+                        Push to Production
+                      </Button>
+                    </div>
+
+                    <div className="p-8 bg-red-500/5 border border-red-500/10 rounded-3xl space-y-6">
+                      <h3 className="text-sm font-mono uppercase tracking-widest text-red-500 italic">Danger Zone</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-zinc-200">Emergency Core Reset</p>
+                          <p className="text-xs text-zinc-500">Wipes all active sessions and reloads core instructions.</p>
+                        </div>
+                        <Button variant="destructive" className="rounded-xl px-6">
+                          RESET
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Admin Footer */}
+            <div className="px-8 py-3 border-t border-white/10 bg-zinc-900/50 flex justify-between items-center">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Database: Connected</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">API: Operational</span>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
+                © 2026 ZOYA_SYSTEMS // ALL RIGHTS RESERVED
+              </span>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}

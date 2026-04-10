@@ -1,0 +1,73 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: messages
+// Document ID: auto-generated
+// Fields:
+//   - text: string (required, 1-5000 chars) - The message content
+//   - isModel: bool (required) - Sender identity
+//   - timestamp: timestamp (required) - Creation time
+//   - uid: string (required) - Owner UID
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Domain Validators
+    function isValidMessage(data) {
+      return data.keys().hasAll(['text', 'isModel', 'timestamp', 'uid']) &&
+             data.keys().hasOnly(['text', 'isModel', 'timestamp', 'uid']) &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 5000 &&
+             data.isModel is bool &&
+             data.timestamp is timestamp &&
+             data.uid is string && data.uid == request.auth.uid;
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['name', 'voiceName', 'personality', 'uid']) &&
+             data.keys().hasOnly(['name', 'voiceName', 'personality', 'uid', 'isDefault']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.voiceName is string &&
+             data.personality is string && data.personality.size() <= 10000 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             (!('isDefault' in data) || data.isDefault is bool);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow update: if false;
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /profiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProfile(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidProfile(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
