@@ -66,7 +66,11 @@ const PermissionItem = ({ icon: Icon, title, description, status, onToggle }: Pe
   );
 };
 
-export const SystemControls = () => {
+interface SystemControlsProps {
+  onError?: (message: string) => void;
+}
+
+export const SystemControls = ({ onError }: SystemControlsProps) => {
   const [permissions, setPermissions] = useState<Record<string, any>>({
     microphone: "prompt",
     camera: "prompt",
@@ -131,6 +135,10 @@ export const SystemControls = () => {
           setPermissions(prev => ({ ...prev, contacts: "granted" }));
         } catch (e) {
           console.error("Contact picker failed:", e);
+          if (e instanceof Error && e.message.includes("top frame")) {
+            // This is a known restriction in iframes (like the AI Studio preview)
+            onError?.("The Contact Picker can only be used in the top-level window. Please open Zoya in a new tab to use this feature.");
+          }
         }
         break;
     }

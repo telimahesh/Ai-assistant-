@@ -10,6 +10,24 @@
 //   - timestamp: timestamp (required) - Creation time
 //   - uid: string (required) - Owner UID
 //
+// Collection: profiles
+// Document ID: auto-generated
+// Fields:
+//   - name: string (required, 1-100 chars) - Profile name
+//   - voiceName: string (required) - Voice ID
+//   - personality: string (required, 1-10000 chars) - System prompt
+//   - uid: string (required) - Owner UID
+//   - isDefault: bool (optional) - Default flag
+//
+// Collection: sessions
+// Document ID: auto-generated
+// Fields:
+//   - title: string (required, 1-200 chars) - Session title
+//   - createdAt: timestamp (required) - Creation time
+//   - lastUpdatedAt: timestamp (required) - Last update time
+//   - uid: string (required) - Owner UID
+//   - profileId: string (optional) - Linked profile ID
+//
 // ===============================================================
 
 rules_version = '2';
@@ -26,6 +44,13 @@ service cloud.firestore {
 
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "telimahesh36@gmail.com" && request.auth.token.email_verified == true));
     }
 
     // Domain Validators
@@ -48,6 +73,16 @@ service cloud.firestore {
              (!('isDefault' in data) || data.isDefault is bool);
     }
 
+    function isValidSession(data) {
+      return data.keys().hasAll(['title', 'createdAt', 'lastUpdatedAt', 'uid']) &&
+             data.keys().hasOnly(['title', 'createdAt', 'lastUpdatedAt', 'uid', 'profileId']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.createdAt is timestamp &&
+             data.lastUpdatedAt is timestamp &&
+             data.uid is string && data.uid == request.auth.uid &&
+             (!('profileId' in data) || data.profileId is string);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -55,15 +90,27 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
       allow create: if isAuthenticated() && isValidMessage(request.resource.data);
-      allow update: if false;
+      allow update: if false; // Messages are immutable
       allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     match /profiles/{profileId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
       allow create: if isAuthenticated() && isValidProfile(request.resource.data);
       allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidProfile(request.resource.data);
       allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidSession(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidSession(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // Allow the connection test
+    match /test/connection {
+      allow read: if true;
     }
 
     match /{document=**} {

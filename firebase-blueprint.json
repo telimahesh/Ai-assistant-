@@ -52,6 +52,36 @@
         }
       },
       "required": ["name", "voiceName", "personality", "uid"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A conversation session containing multiple messages.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "A summary or title for the session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the session was started."
+        },
+        "lastUpdatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the last message was added."
+        },
+        "uid": {
+          "type": "string",
+          "description": "The UID of the user who owns this session."
+        },
+        "profileId": {
+          "type": "string",
+          "description": "The ID of the VoiceProfile used during this session."
+        }
+      },
+      "required": ["title", "createdAt", "lastUpdatedAt", "uid"]
     }
   },
   "firestore": {
@@ -62,6 +92,10 @@
     "/profiles/{profileId}": {
       "schema": "VoiceProfile",
       "description": "User-created voice and personality profiles."
+    },
+    "/sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Collection of conversation sessions."
     }
   }
 }
