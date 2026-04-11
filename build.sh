@@ -11,11 +11,11 @@ fi
 
 # 2. Clean old builds
 echo "Cleaning old build files..."
-./gradlew clean
+sh gradlew clean
 
 # 3. Build Debug APK
 echo "Building APK..."
-./gradlew assembleDebug
+sh gradlew assembleDebug
 
 if [ $? -eq 0 ]; then
     echo "--------------------------------------------"
