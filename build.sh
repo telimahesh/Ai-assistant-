@@ -4,10 +4,14 @@
 echo "Starting Zoya App Build Process..."
 
 # 1. Fix JAVA_HOME and AAPT2 for Termux
-if [ -d "/data/data/com.termux/files/usr/lib/jvm/openjdk-17" ]; then
-    export JAVA_HOME="/data/data/com.termux/files/usr/lib/jvm/openjdk-17"
-elif [ -n "$PREFIX" ] && [ -d "$PREFIX/lib/jvm/openjdk-17" ]; then
-    export JAVA_HOME="$PREFIX/lib/jvm/openjdk-17"
+if [ -n "$PREFIX" ]; then
+    # Dynamically find Java path
+    JAVA_PATH=$(which java)
+    if [ -n "$JAVA_PATH" ]; then
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f "$JAVA_PATH")))
+    else
+        export JAVA_HOME="$PREFIX"
+    fi
 fi
 
 if [ -f "/data/data/com.termux/files/usr/bin/aapt2" ]; then
