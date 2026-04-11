@@ -28,37 +28,6 @@ android {
     }
 }
 
-// Termux Fix: Automatically replace broken AAPT2 in cache with working system version
-tasks.register('fixAapt2') {
-    doLast {
-        def gradleCache = new File(System.getProperty("user.home"), ".gradle/caches")
-        if (gradleCache.exists()) {
-            gradleCache.eachFileRecurse { file ->
-                if (file.name == "aapt2" && file.isFile() && !java.nio.file.Files.isSymbolicLink(file.toPath())) {
-                    // Check if it's the broken linux binary (usually starts with a specific byte or is just not executable)
-                    println "Checking aapt2 at ${file.absolutePath}"
-                    try {
-                        def termuxAapt2 = new File("/data/data/com.termux/files/usr/bin/aapt2")
-                        if (termuxAapt2.exists()) {
-                            println "Replacing broken aapt2 with symlink to ${termuxAapt2.absolutePath}"
-                            file.delete()
-                            java.nio.file.Files.createSymbolicLink(file.toPath(), termuxAapt2.toPath())
-                        }
-                    } catch (Exception e) {
-                        println "Failed to fix aapt2: ${e.message}"
-                    }
-                }
-            }
-        }
-    }
-}
-
-project.afterEvaluate {
-    tasks.matching { it.name.startsWith('preBuild') }.all {
-        dependsOn fixAapt2
-    }
-}
-
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
