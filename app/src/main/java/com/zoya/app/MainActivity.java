@@ -45,8 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ZoyaMain";
     private final OkHttpClient client = new OkHttpClient();
     
-    // Replace with your actual Gemini API Key or use a secure way to store it
-    private static final String GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; 
+    // Gemini API Key provided by the user
+    private static final String GEMINI_API_KEY = "AIzaSyCUpZa-30Asq5chbmAS29f7F-oxK8BpFX8"; 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
