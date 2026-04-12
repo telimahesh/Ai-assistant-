@@ -64,7 +64,7 @@ CORE BEHAVIORS:
 You only communicate via audio. You are expressive, emotionally responsive, and deeply connected to the user.`;
 
       this.sessionPromise = this.ai.live.connect({
-        model: model || "gemini-3.1-flash-live-preview",
+        model: model || "gemini-2.0-flash-exp",
         callbacks: {
           onopen: async () => {
             this.setState("connected");

@@ -228,6 +228,7 @@ export default function App() {
   const [openaiKey, setOpenaiKey] = useState("");
   const [selectedGeminiModel, setSelectedGeminiModel] = useState(GEMINI_MODELS[0]);
   const [selectedOpenaiModel, setSelectedOpenaiModel] = useState(OPENAI_MODELS[0]);
+  const [activeAiProvider, setActiveAiProvider] = useState<"gemini" | "openai">("gemini");
   const [isSavingAI, setIsSavingAI] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -276,6 +277,7 @@ export default function App() {
           setOpenaiKey(userData.openaiApiKey || "");
           setSelectedGeminiModel(userData.selectedGeminiModel || GEMINI_MODELS[0]);
           setSelectedOpenaiModel(userData.selectedOpenaiModel || OPENAI_MODELS[0]);
+          setActiveAiProvider(userData.activeAiProvider || "gemini");
         } else {
           // If logged in anonymously but no custom doc, we stay on login screen
           // unless it's the bootstrap admin
@@ -368,14 +370,16 @@ export default function App() {
         geminiApiKey: geminiKey,
         openaiApiKey: openaiKey,
         selectedGeminiModel: selectedGeminiModel,
-        selectedOpenaiModel: selectedOpenaiModel
+        selectedOpenaiModel: selectedOpenaiModel,
+        activeAiProvider: activeAiProvider
       });
       setCustomUser((prev: any) => ({
         ...prev,
         geminiApiKey: geminiKey,
         openaiApiKey: openaiKey,
         selectedGeminiModel: selectedGeminiModel,
-        selectedOpenaiModel: selectedOpenaiModel
+        selectedOpenaiModel: selectedOpenaiModel,
+        activeAiProvider: activeAiProvider
       }));
       alert("AI Configuration saved successfully!");
     } catch (error: any) {
@@ -659,6 +663,12 @@ export default function App() {
       try {
         // Request wake lock on user gesture
         await requestWakeLock();
+
+        if (customUser?.activeAiProvider === "openai") {
+          setErrorMessage("Live Voice is currently only supported with Gemini. Please switch to Gemini in AI Config or wait for ChatGPT Voice support.");
+          return;
+        }
+
         await sessionRef.current?.connect(
           voice, 
           personality, 
@@ -1423,68 +1433,107 @@ export default function App() {
                       className="space-y-6"
                     >
                       <div className="space-y-6">
-                        {/* Gemini Config */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-cyan-400" />
-                            <h3 className="text-xs font-bold text-white uppercase tracking-widest">Gemini Configuration</h3>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
-                            <input 
-                              type="password"
-                              value={geminiKey}
-                              onChange={(e) => setGeminiKey(e.target.value)}
-                              placeholder="Enter Gemini API Key"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
-                            <select 
-                              value={selectedGeminiModel}
-                              onChange={(e) => setSelectedGeminiModel(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors appearance-none"
-                            >
-                              {GEMINI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
-                            </select>
-                          </div>
+                        {/* Provider Selector */}
+                        <div className="flex gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
+                          <button
+                            onClick={() => setActiveAiProvider("gemini")}
+                            className={cn(
+                              "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2",
+                              activeAiProvider === "gemini" 
+                                ? "bg-cyan-500 text-white shadow-lg" 
+                                : "text-zinc-500 hover:text-zinc-300"
+                            )}
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Gemini
+                          </button>
+                          <button
+                            onClick={() => setActiveAiProvider("openai")}
+                            className={cn(
+                              "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2",
+                              activeAiProvider === "openai" 
+                                ? "bg-pink-500 text-white shadow-lg" 
+                                : "text-zinc-500 hover:text-zinc-300"
+                            )}
+                          >
+                            <Bot className="w-3 h-3" />
+                            ChatGPT
+                          </button>
                         </div>
 
-                        {/* OpenAI Config */}
-                        <div className="space-y-4 pt-4 border-t border-white/5">
-                          <div className="flex items-center gap-2">
-                            <Bot className="w-4 h-4 text-pink-400" />
-                            <h3 className="text-xs font-bold text-white uppercase tracking-widest">ChatGPT Configuration</h3>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
-                            <input 
-                              type="password"
-                              value={openaiKey}
-                              onChange={(e) => setOpenaiKey(e.target.value)}
-                              placeholder="Enter OpenAI API Key"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
-                            <select 
-                              value={selectedOpenaiModel}
-                              onChange={(e) => setSelectedOpenaiModel(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors appearance-none"
-                            >
-                              {OPENAI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
-                            </select>
-                          </div>
-                        </div>
+                        {activeAiProvider === "gemini" ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-cyan-400" />
+                              <h3 className="text-xs font-bold text-white uppercase tracking-widest">Gemini Configuration</h3>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
+                              <input 
+                                type="password"
+                                value={geminiKey}
+                                onChange={(e) => setGeminiKey(e.target.value)}
+                                placeholder="Enter Gemini API Key"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
+                              <select 
+                                value={selectedGeminiModel}
+                                onChange={(e) => setSelectedGeminiModel(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors appearance-none"
+                              >
+                                {GEMINI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+                              </select>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Bot className="w-4 h-4 text-pink-400" />
+                              <h3 className="text-xs font-bold text-white uppercase tracking-widest">ChatGPT Configuration</h3>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
+                              <input 
+                                type="password"
+                                value={openaiKey}
+                                onChange={(e) => setOpenaiKey(e.target.value)}
+                                placeholder="Enter OpenAI API Key"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
+                              <select 
+                                value={selectedOpenaiModel}
+                                onChange={(e) => setSelectedOpenaiModel(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors appearance-none"
+                              >
+                                {OPENAI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+                              </select>
+                            </div>
+                          </motion.div>
+                        )}
 
                         <Button 
                           onClick={handleSaveAIConfig}
                           disabled={isSavingAI}
-                          className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-4 font-bold uppercase tracking-widest text-[10px] mt-4"
+                          className={cn(
+                            "w-full text-white rounded-xl py-4 font-bold uppercase tracking-widest text-[10px] mt-4 transition-colors",
+                            activeAiProvider === "gemini" ? "bg-cyan-600 hover:bg-cyan-500" : "bg-pink-600 hover:bg-pink-500"
+                          )}
                         >
-                          {isSavingAI ? "Saving..." : "Save AI Configuration"}
+                          {isSavingAI ? "Saving..." : `Save ${activeAiProvider === "gemini" ? "Gemini" : "ChatGPT"} Config`}
                         </Button>
                       </div>
                     </motion.div>
