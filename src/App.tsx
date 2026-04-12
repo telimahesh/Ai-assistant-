@@ -236,10 +236,6 @@ export default function App() {
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (!u && isAuthReady) {
-        // Auto-login anonymously for personal use
-        signInAnon().catch(console.error);
-      }
       setUser(u);
       // Wait a bit to ensure auth token is fully propagated to Firestore
       if (u) {
@@ -249,7 +245,7 @@ export default function App() {
       }
     });
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, []);
 
   // Sessions Listener
   useEffect(() => {
@@ -745,6 +741,17 @@ export default function App() {
         </div>
         
         <div className="flex gap-4 items-center">
+          {user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => signOut()}
+              className="text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
+              title="Sign Out"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -814,15 +821,22 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Interaction Area */}
-      {!user ? (
+      {!user && isAuthReady ? (
         <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6 text-center">
           <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center border border-pink-500/20">
-            <Sparkles className="w-12 h-12 text-pink-500 animate-pulse" />
+            <Sparkles className="w-12 h-12 text-pink-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight mb-2 uppercase italic">Initializing Zoya</h2>
-            <p className="text-zinc-500 text-sm">Setting up your personal assistant...</p>
+            <h2 className="text-2xl font-bold tracking-tight mb-2 uppercase italic">Meet Zoya</h2>
+            <p className="text-zinc-500 text-sm">Sign in to start your sassy conversation and save your memories.</p>
           </div>
+          <Button 
+            onClick={() => signIn()}
+            className="bg-pink-600 hover:bg-pink-500 text-white rounded-full px-12 py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
+          >
+            <LogIn className="w-4 h-4 mr-2" />
+            Sign in with Google
+          </Button>
         </div>
       ) : (
         <div className="relative flex flex-col items-center justify-center gap-12 z-10 w-full max-w-md px-6">
