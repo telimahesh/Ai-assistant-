@@ -33,6 +33,4 @@ testConnection();
 export const googleProvider = new GoogleAuthProvider();
 export const signIn = () => signInWithPopup(auth, googleProvider);
 export const signInAnon = () => signInAnonymously(auth);
-export const loginWithId = (id: string, pass: string) => signInWithEmailAndPassword(auth, `${id}@zoya.app`, pass);
-export const registerWithId = (id: string, pass: string) => createUserWithEmailAndPassword(auth, `${id}@zoya.app`, pass);
 export const signOut = () => auth.signOut();

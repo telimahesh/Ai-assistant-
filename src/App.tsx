@@ -200,6 +200,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<"profiles" | "permissions" | "users">("profiles");
   const [editingProfile, setEditingProfile] = useState<Partial<VoiceProfile> | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [customUser, setCustomUser] = useState<any>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [loginPass, setLoginPass] = useState("");
@@ -245,22 +246,21 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        // Check if admin
+        // Check if custom user exists
         const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
         if (!userDoc.empty) {
-          setIsAdmin(userDoc.docs[0].data().role === "admin");
-        } else if (u.email === "587311@zoya.app") {
-          // Bootstrap admin if it's the first time
-          await setDoc(doc(db, "users", u.uid), {
-            uid: u.uid,
-            id: "587311",
-            role: "admin",
-            createdAt: serverTimestamp()
-          });
-          setIsAdmin(true);
+          const userData = userDoc.docs[0].data();
+          setCustomUser(userData);
+          setIsAdmin(userData.role === "admin");
+        } else {
+          // If logged in anonymously but no custom doc, we stay on login screen
+          // unless it's the bootstrap admin
+          setCustomUser(null);
+          setIsAdmin(false);
         }
         setTimeout(() => setIsAuthReady(true), 500);
       } else {
+        setCustomUser(null);
         setIsAdmin(false);
         setIsAuthReady(true);
       }
@@ -274,18 +274,51 @@ export default function App() {
     setIsLoggingIn(true);
     setErrorMessage(null);
     try {
-      await loginWithId(loginId, loginPass);
-    } catch (error: any) {
-      // If admin login fails and it's the first time, try to register
-      if (loginId === "587311" && loginPass === "admin123" && error.code === "auth/user-not-found") {
-        try {
-          await registerWithId(loginId, loginPass);
-        } catch (regError: any) {
-          setErrorMessage("Login failed: " + regError.message);
+      // 1. Sign in anonymously first to get a UID
+      const userCredential = await signInAnon();
+      const uid = userCredential.user.uid;
+
+      // 2. Check if this is the bootstrap admin
+      if (loginId === "587311" && loginPass === "admin123") {
+        const adminQuery = await getDocs(query(collection(db, "users"), where("id", "==", "587311")));
+        if (adminQuery.empty) {
+          // Create bootstrap admin
+          const adminData = {
+            uid: uid,
+            id: "587311",
+            password: "admin123",
+            role: "admin",
+            createdAt: serverTimestamp()
+          };
+          await setDoc(doc(db, "users", uid), adminData);
+          setCustomUser(adminData);
+          setIsAdmin(true);
+          return;
         }
+      }
+
+      // 3. Regular login check against Firestore
+      const q = query(collection(db, "users"), where("id", "==", loginId), where("password", "==", loginPass));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        
+        // Link current anonymous UID to this user doc if not already linked
+        if (userData.uid !== uid) {
+          await updateDoc(doc(db, "users", userDoc.id), { uid: uid });
+        }
+        
+        setCustomUser({ ...userData, uid: uid });
+        setIsAdmin(userData.role === "admin");
       } else {
         setErrorMessage("Invalid ID or Password");
+        await signOut();
       }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setErrorMessage("Login failed. Please check your internet.");
     } finally {
       setIsLoggingIn(false);
     }
@@ -296,27 +329,25 @@ export default function App() {
     if (!newUserId || !newUserPass) return;
     setIsCreatingUser(true);
     try {
-      // We need to create the user in Auth. 
-      // Note: This will sign out the current admin and sign in the new user 
-      // unless we use a separate admin SDK or cloud function.
-      // For this personal app, we'll warn the admin or just use a simpler Firestore-only auth 
-      // if they don't want to be signed out.
-      // But let's try to do it and then sign back in as admin if possible, 
-      // or just tell the admin they'll need to log back in.
-      
-      const currentAdminId = "587311";
-      const currentAdminPass = "admin123";
-      
-      const userCredential = await registerWithId(newUserId, newUserPass);
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        uid: userCredential.user.uid,
+      // Check if ID already exists
+      const q = query(collection(db, "users"), where("id", "==", newUserId));
+      const existing = await getDocs(q);
+      if (!existing.empty) {
+        setErrorMessage("User ID already exists");
+        return;
+      }
+
+      // Create user doc in Firestore (no Auth creation needed)
+      const newUserRef = doc(collection(db, "users"));
+      await setDoc(newUserRef, {
         id: newUserId,
+        password: newUserPass,
         role: "user",
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        createdBy: user?.uid
       });
       
-      alert(`User ${newUserId} created successfully. You will now be signed out. Please log back in as admin.`);
-      await signOut();
+      alert(`User ${newUserId} created successfully!`);
       setNewUserId("");
       setNewUserPass("");
     } catch (error: any) {
@@ -900,7 +931,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Interaction Area */}
-      {!user && isAuthReady ? (
+      {(!user || !customUser) && isAuthReady ? (
         <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6">
           <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center border border-pink-500/20">
             <Sparkles className="w-12 h-12 text-pink-500" />
