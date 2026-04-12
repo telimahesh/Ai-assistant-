@@ -3,6 +3,7 @@ package com.zoya.app;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -59,25 +60,60 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
+        webSettings.setSupportMultipleWindows(true);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         
         // Set a custom User Agent to bypass Google's "disallowed_useragent" block
-        // This makes the WebView identify as a standard mobile Chrome browser
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Keep the app inside the WebView for the main URL
-                if (url.contains("run.app") || url.contains("firebaseapp.com")) {
+                // Keep the app inside the WebView for the main URL and Firebase Auth redirects
+                if (url.contains("run.app") || url.contains("firebaseapp.com") || url.contains("google.com/accounts")) {
                     return false;
                 }
-                // Open external links (like Google Login if it still fails) in the system browser
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                startActivity(intent);
-                return true;
+                // Open other external links in the system browser
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
             }
         });
+
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+                // Handle window.open() or target="_blank" (like Google Login popups)
+                // We open them in the system browser for better compatibility
+                WebView.HitTestResult result = view.getHitTestResult();
+                String data = result.getExtra();
+                Context context = view.getContext();
+                if (data != null) {
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(data));
+                    context.startActivity(browserIntent);
+                } else {
+                    // If we can't get the URL directly, we let the system handle it
+                    // This is a fallback for complex JS-driven popups
+                    WebView newWebView = new WebView(view.getContext());
+                    newWebView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            view.getContext().startActivity(browserIntent);
+                            return true;
+                        }
+                    });
+                    WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                    transport.setWebView(newWebView);
+                    resultMsg.sendToTarget();
+                }
+                return true;
+            }
+
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 MainActivity.this.runOnUiThread(new Runnable() {
