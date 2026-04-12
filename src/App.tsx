@@ -275,8 +275,19 @@ export default function App() {
     setErrorMessage(null);
     try {
       // 1. Sign in anonymously first to get a UID
-      const userCredential = await signInAnon();
-      const uid = userCredential.user.uid;
+      let uid = "";
+      try {
+        const userCredential = await signInAnon();
+        uid = userCredential.user.uid;
+      } catch (authError: any) {
+        console.error("Auth error:", authError.code);
+        if (authError.code === "auth/operation-not-allowed") {
+          setErrorMessage("CRITICAL: Please enable 'Anonymous' Auth in Firebase Console (Authentication > Sign-in method).");
+          setIsLoggingIn(false);
+          return;
+        }
+        throw authError;
+      }
 
       // 2. Check if this is the bootstrap admin
       if (loginId === "587311" && loginPass === "admin123") {
