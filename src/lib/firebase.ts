@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -25,4 +25,5 @@ testConnection();
 
 export const googleProvider = new GoogleAuthProvider();
 export const signIn = () => signInWithPopup(auth, googleProvider);
+export const signInAnon = () => signInAnonymously(auth);
 export const signOut = () => auth.signOut();
