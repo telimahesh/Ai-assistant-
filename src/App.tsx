@@ -26,14 +26,15 @@ import {
   CheckCircle2,
   Pause,
   Play,
-  AlertCircle
+  AlertCircle,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LiveSession, SessionState } from "@/lib/live-session";
 import { cn } from "@/lib/utils";
 import { AdminPanel } from "@/components/AdminPanel";
 import { SystemControls } from "./components/SystemControls";
-import { auth, db, signIn, signOut, signInAnon, loginWithId, registerWithId } from "@/lib/firebase";
+import { auth, db, signIn, signOut, signInAnon } from "@/lib/firebase";
 import { 
   collection, 
   addDoc, 
@@ -185,6 +186,20 @@ const PERSONALITY_TEMPLATES = [
   }
 ];
 
+const GEMINI_MODELS = [
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-1.5-flash-8b"
+];
+
+const OPENAI_MODELS = [
+  "gpt-4o",
+  "gpt-4o-mini",
+  "gpt-4-turbo",
+  "gpt-3.5-turbo"
+];
+
 export default function App() {
   const [state, setState] = useState<SessionState>("disconnected");
   const [volume, setVolume] = useState(0);
@@ -197,7 +212,7 @@ export default function App() {
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"profiles" | "permissions" | "users">("profiles");
+  const [settingsTab, setSettingsTab] = useState<"profiles" | "permissions" | "users" | "ai">("profiles");
   const [editingProfile, setEditingProfile] = useState<Partial<VoiceProfile> | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [customUser, setCustomUser] = useState<any>(null);
@@ -209,6 +224,11 @@ export default function App() {
   const [newUserId, setNewUserId] = useState("");
   const [newUserPass, setNewUserPass] = useState("");
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [geminiKey, setGeminiKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState(GEMINI_MODELS[0]);
+  const [selectedOpenaiModel, setSelectedOpenaiModel] = useState(OPENAI_MODELS[0]);
+  const [isSavingAI, setIsSavingAI] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
@@ -252,6 +272,10 @@ export default function App() {
           const userData = userDoc.docs[0].data();
           setCustomUser(userData);
           setIsAdmin(userData.role === "admin");
+          setGeminiKey(userData.geminiApiKey || "");
+          setOpenaiKey(userData.openaiApiKey || "");
+          setSelectedGeminiModel(userData.selectedGeminiModel || GEMINI_MODELS[0]);
+          setSelectedOpenaiModel(userData.selectedOpenaiModel || OPENAI_MODELS[0]);
         } else {
           // If logged in anonymously but no custom doc, we stay on login screen
           // unless it's the bootstrap admin
@@ -332,6 +356,32 @@ export default function App() {
       setErrorMessage("Login failed. Please check your internet.");
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleSaveAIConfig = async () => {
+    if (!user || !customUser) return;
+    setIsSavingAI(true);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        geminiApiKey: geminiKey,
+        openaiApiKey: openaiKey,
+        selectedGeminiModel: selectedGeminiModel,
+        selectedOpenaiModel: selectedOpenaiModel
+      });
+      setCustomUser((prev: any) => ({
+        ...prev,
+        geminiApiKey: geminiKey,
+        openaiApiKey: openaiKey,
+        selectedGeminiModel: selectedGeminiModel,
+        selectedOpenaiModel: selectedOpenaiModel
+      }));
+      alert("AI Configuration saved successfully!");
+    } catch (error: any) {
+      setErrorMessage("Failed to save AI config: " + error.message);
+    } finally {
+      setIsSavingAI(false);
     }
   };
 
@@ -609,7 +659,12 @@ export default function App() {
       try {
         // Request wake lock on user gesture
         await requestWakeLock();
-        await sessionRef.current?.connect(voice, personality);
+        await sessionRef.current?.connect(
+          voice, 
+          personality, 
+          customUser?.geminiApiKey, 
+          customUser?.selectedGeminiModel
+        );
       } catch (error) {
         console.error("Connection error:", error);
         if (error instanceof Error && error.message.includes("GEMINI_API_KEY")) {
@@ -1239,6 +1294,17 @@ export default function App() {
                   >
                     Permissions
                   </button>
+                  <button
+                    onClick={() => setSettingsTab("ai")}
+                    className={cn(
+                      "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                      settingsTab === "ai" 
+                        ? "bg-cyan-500 text-white shadow-lg" 
+                        : "text-zinc-500 hover:text-zinc-300"
+                    )}
+                  >
+                    AI Config
+                  </button>
                   {isAdmin && (
                     <button
                       onClick={() => setSettingsTab("users")}
@@ -1345,6 +1411,80 @@ export default function App() {
                           className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold uppercase tracking-widest text-[10px]"
                         >
                           Save Profile
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : settingsTab === "ai" ? (
+                    <motion.div
+                      key="ai"
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -20, opacity: 0 }}
+                      className="space-y-6"
+                    >
+                      <div className="space-y-6">
+                        {/* Gemini Config */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-cyan-400" />
+                            <h3 className="text-xs font-bold text-white uppercase tracking-widest">Gemini Configuration</h3>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
+                            <input 
+                              type="password"
+                              value={geminiKey}
+                              onChange={(e) => setGeminiKey(e.target.value)}
+                              placeholder="Enter Gemini API Key"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
+                            <select 
+                              value={selectedGeminiModel}
+                              onChange={(e) => setSelectedGeminiModel(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors appearance-none"
+                            >
+                              {GEMINI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* OpenAI Config */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-2">
+                            <Bot className="w-4 h-4 text-pink-400" />
+                            <h3 className="text-xs font-bold text-white uppercase tracking-widest">ChatGPT Configuration</h3>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
+                            <input 
+                              type="password"
+                              value={openaiKey}
+                              onChange={(e) => setOpenaiKey(e.target.value)}
+                              placeholder="Enter OpenAI API Key"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">Model ID</label>
+                            <select 
+                              value={selectedOpenaiModel}
+                              onChange={(e) => setSelectedOpenaiModel(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors appearance-none"
+                            >
+                              {OPENAI_MODELS.map(m => <option key={m} value={m} className="bg-zinc-900">{m}</option>)}
+                            </select>
+                          </div>
+                        </div>
+
+                        <Button 
+                          onClick={handleSaveAIConfig}
+                          disabled={isSavingAI}
+                          className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-4 font-bold uppercase tracking-widest text-[10px] mt-4"
+                        >
+                          {isSavingAI ? "Saving..." : "Save AI Configuration"}
                         </Button>
                       </div>
                     </motion.div>
