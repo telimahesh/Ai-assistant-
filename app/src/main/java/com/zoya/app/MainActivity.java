@@ -57,8 +57,26 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
+        
+        // Set a custom User Agent to bypass Google's "disallowed_useragent" block
+        // This makes the WebView identify as a standard mobile Chrome browser
+        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // Keep the app inside the WebView for the main URL
+                if (url.contains("run.app") || url.contains("firebaseapp.com")) {
+                    return false;
+                }
+                // Open external links (like Google Login if it still fails) in the system browser
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                startActivity(intent);
+                return true;
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -150,7 +168,11 @@ public class MainActivity extends AppCompatActivity {
                             showWorldUpdateDialog("Error parsing response: " + e.getMessage() + "\n\nRaw: " + responseData);
                         }
                     } else {
-                        showWorldUpdateDialog("API Error: " + response.code() + "\n\n" + responseData);
+                        String errorMsg = "API Error: " + response.code();
+                        if (responseData.contains("API_KEY_INVALID")) {
+                            errorMsg += "\n\nCRITICAL: Your Gemini API Key is invalid or missing. Please update the GEMINI_API_KEY constant in MainActivity.java and set it in AI Studio Settings.";
+                        }
+                        showWorldUpdateDialog(errorMsg + "\n\nDetails: " + responseData);
                     }
                 });
             }

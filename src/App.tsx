@@ -512,15 +512,18 @@ export default function App() {
       const voice = activeProfile?.voiceName || selectedVoice;
       const personality = activeProfile?.personality || "";
       
-      // Start a new session on connect if none active
-      if (!activeSessionId) {
-        // We'll let the first message create the session for a better title
+      try {
+        // Request wake lock on user gesture
+        await requestWakeLock();
+        await sessionRef.current?.connect(voice, personality);
+      } catch (error) {
+        console.error("Connection error:", error);
+        if (error instanceof Error && error.message.includes("GEMINI_API_KEY")) {
+          setErrorMessage("Gemini API Key is missing. Please set GEMINI_API_KEY in AI Studio Settings.");
+        } else {
+          setErrorMessage("Failed to connect to Zoya. Please check your internet and API key.");
+        }
       }
-
-      // Request wake lock on user gesture
-      await requestWakeLock();
-      
-      await sessionRef.current?.connect(voice, personality);
     } else {
       sessionRef.current?.disconnect();
       stopScreenShare();
