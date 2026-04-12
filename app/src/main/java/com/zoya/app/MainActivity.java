@@ -69,11 +69,13 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Keep the app inside the WebView for the main URL and Firebase Auth redirects
-                if (url.contains("run.app") || url.contains("firebaseapp.com") || url.contains("google.com/accounts")) {
+                // Keep the app inside the WebView ONLY for the main development/shared URLs
+                if (url.contains("run.app")) {
                     return false;
                 }
-                // Open other external links in the system browser
+                
+                // For Google Login and Firebase Auth, we open them in the system browser
+                // to avoid "missing initial state" and "disallowed_useragent" errors
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
@@ -149,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setCancelable(false);
         progressDialog.show();
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
 
         JSONObject jsonBody = new JSONObject();
         try {
