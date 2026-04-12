@@ -33,7 +33,7 @@ import { LiveSession, SessionState } from "@/lib/live-session";
 import { cn } from "@/lib/utils";
 import { AdminPanel } from "@/components/AdminPanel";
 import { SystemControls } from "./components/SystemControls";
-import { auth, db, signIn, signOut, signInAnon } from "@/lib/firebase";
+import { auth, db, signIn, signOut, signInAnon, loginWithId, registerWithId } from "@/lib/firebase";
 import { 
   collection, 
   addDoc, 
@@ -197,10 +197,17 @@ export default function App() {
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"profiles" | "permissions">("profiles");
+  const [settingsTab, setSettingsTab] = useState<"profiles" | "permissions" | "users">("profiles");
   const [editingProfile, setEditingProfile] = useState<Partial<VoiceProfile> | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [loginId, setLoginId] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [newUserId, setNewUserId] = useState("");
+  const [newUserPass, setNewUserPass] = useState("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
@@ -235,17 +242,89 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      // Wait a bit to ensure auth token is fully propagated to Firestore
       if (u) {
+        // Check if admin
+        const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
+        if (!userDoc.empty) {
+          setIsAdmin(userDoc.docs[0].data().role === "admin");
+        } else if (u.email === "587311@zoya.app") {
+          // Bootstrap admin if it's the first time
+          await setDoc(doc(db, "users", u.uid), {
+            uid: u.uid,
+            id: "587311",
+            role: "admin",
+            createdAt: serverTimestamp()
+          });
+          setIsAdmin(true);
+        }
         setTimeout(() => setIsAuthReady(true), 500);
       } else {
+        setIsAdmin(false);
         setIsAuthReady(true);
       }
     });
     return () => unsubscribe();
   }, []);
+
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    if (!loginId || !loginPass) return;
+    setIsLoggingIn(true);
+    setErrorMessage(null);
+    try {
+      await loginWithId(loginId, loginPass);
+    } catch (error: any) {
+      // If admin login fails and it's the first time, try to register
+      if (loginId === "587311" && loginPass === "admin123" && error.code === "auth/user-not-found") {
+        try {
+          await registerWithId(loginId, loginPass);
+        } catch (regError: any) {
+          setErrorMessage("Login failed: " + regError.message);
+        }
+      } else {
+        setErrorMessage("Invalid ID or Password");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleCreateUser = async (e: any) => {
+    e.preventDefault();
+    if (!newUserId || !newUserPass) return;
+    setIsCreatingUser(true);
+    try {
+      // We need to create the user in Auth. 
+      // Note: This will sign out the current admin and sign in the new user 
+      // unless we use a separate admin SDK or cloud function.
+      // For this personal app, we'll warn the admin or just use a simpler Firestore-only auth 
+      // if they don't want to be signed out.
+      // But let's try to do it and then sign back in as admin if possible, 
+      // or just tell the admin they'll need to log back in.
+      
+      const currentAdminId = "587311";
+      const currentAdminPass = "admin123";
+      
+      const userCredential = await registerWithId(newUserId, newUserPass);
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        id: newUserId,
+        role: "user",
+        createdAt: serverTimestamp()
+      });
+      
+      alert(`User ${newUserId} created successfully. You will now be signed out. Please log back in as admin.`);
+      await signOut();
+      setNewUserId("");
+      setNewUserPass("");
+    } catch (error: any) {
+      setErrorMessage("Failed to create user: " + error.message);
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
 
   // Sessions Listener
   useEffect(() => {
@@ -822,21 +901,44 @@ export default function App() {
 
       {/* Main Interaction Area */}
       {!user && isAuthReady ? (
-        <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6 text-center">
+        <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6">
           <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center border border-pink-500/20">
             <Sparkles className="w-12 h-12 text-pink-500" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight mb-2 uppercase italic">Meet Zoya</h2>
-            <p className="text-zinc-500 text-sm">Sign in to start your sassy conversation and save your memories.</p>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight mb-2 uppercase italic">Zoya Login</h2>
+            <p className="text-zinc-500 text-sm">Enter your ID and Password to continue.</p>
           </div>
-          <Button 
-            onClick={() => signIn()}
-            className="bg-pink-600 hover:bg-pink-500 text-white rounded-full px-12 py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
-          >
-            <LogIn className="w-4 h-4 mr-2" />
-            Sign in with Google
-          </Button>
+          
+          <form onSubmit={handleLogin} className="w-full space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">ID</label>
+              <input 
+                type="text"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="Enter ID"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">Password</label>
+              <input 
+                type="password"
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="Enter Password"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+              />
+            </div>
+            <Button 
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-2xl py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
+            >
+              {isLoggingIn ? "Logging in..." : "Login"}
+            </Button>
+          </form>
         </div>
       ) : (
         <div className="relative flex flex-col items-center justify-center gap-12 z-10 w-full max-w-md px-6">
@@ -1095,6 +1197,19 @@ export default function App() {
                   >
                     Permissions
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setSettingsTab("users")}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                        settingsTab === "users" 
+                          ? "bg-cyan-500 text-white shadow-lg" 
+                          : "text-zinc-500 hover:text-zinc-300"
+                      )}
+                    >
+                      Users
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1189,6 +1304,48 @@ export default function App() {
                         >
                           Save Profile
                         </Button>
+                      </div>
+                    </motion.div>
+                  ) : settingsTab === "users" && isAdmin ? (
+                    <motion.div
+                      key="users"
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -20, opacity: 0 }}
+                      className="space-y-6"
+                    >
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Generate New User</h3>
+                        <form onSubmit={handleCreateUser} className="space-y-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">New ID</label>
+                            <input 
+                              type="text"
+                              value={newUserId}
+                              onChange={(e) => setNewUserId(e.target.value)}
+                              placeholder="Enter ID"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">New Password</label>
+                            <input 
+                              type="text"
+                              value={newUserPass}
+                              onChange={(e) => setNewUserPass(e.target.value)}
+                              placeholder="Enter Password"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <Button 
+                            type="submit"
+                            disabled={isCreatingUser}
+                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-4 font-bold uppercase tracking-widest text-[10px]"
+                          >
+                            {isCreatingUser ? "Generating..." : "Generate User"}
+                          </Button>
+                          <p className="text-[8px] text-zinc-500 text-center italic">Note: You will be signed out after creation to complete the process.</p>
+                        </form>
                       </div>
                     </motion.div>
                   ) : settingsTab === "profiles" ? (
