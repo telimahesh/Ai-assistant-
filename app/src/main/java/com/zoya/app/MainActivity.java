@@ -45,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ZoyaMain";
     private final OkHttpClient client = new OkHttpClient();
     
-    // Gemini API Key provided by the user
+    // Gemini API Key: IMPORTANT - If you change your key in AI Studio Settings, 
+    // you MUST also update this hardcoded string and rebuild the APK.
     private static final String GEMINI_API_KEY = "AIzaSyCUpZa-30Asq5chbmAS29f7F-oxK8BpFX8"; 
 
     @Override
@@ -69,13 +70,13 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Keep the app inside the WebView ONLY for the main development/shared URLs
-                if (url.contains("run.app")) {
+                // Keep the app and auth flows inside the WebView
+                // We use a custom User Agent to bypass Google's block
+                if (url.contains("run.app") || url.contains("firebaseapp.com") || url.contains("google.com")) {
                     return false;
                 }
                 
-                // For Google Login and Firebase Auth, we open them in the system browser
-                // to avoid "missing initial state" and "disallowed_useragent" errors
+                // Open other external links in the system browser
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
@@ -89,30 +90,38 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
-                // Handle window.open() or target="_blank" (like Google Login popups)
-                // We open them in the system browser for better compatibility
+                // Handle popups (like Google Login) inside the same WebView or a dialog
+                // For simplicity and to maintain state, we'll try to load it in the same view
+                // if it's an auth-related URL
                 WebView.HitTestResult result = view.getHitTestResult();
                 String data = result.getExtra();
-                Context context = view.getContext();
-                if (data != null) {
-                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(data));
-                    context.startActivity(browserIntent);
-                } else {
-                    // If we can't get the URL directly, we let the system handle it
-                    // This is a fallback for complex JS-driven popups
-                    WebView newWebView = new WebView(view.getContext());
-                    newWebView.setWebViewClient(new WebViewClient() {
-                        @Override
-                        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                            view.getContext().startActivity(browserIntent);
+                if (data != null && (data.contains("google.com") || data.contains("firebaseapp.com"))) {
+                    view.loadUrl(data);
+                    return false;
+                }
+
+                // Fallback: Open in a new "window" but keep it in the app if possible
+                WebView newWebView = new WebView(MainActivity.this);
+                newWebView.getSettings().setJavaScriptEnabled(true);
+                newWebView.getSettings().setSupportMultipleWindows(true);
+                newWebView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+                newWebView.getSettings().setDomStorageEnabled(true);
+                newWebView.getSettings().setUserAgentString(webView.getSettings().getUserAgentString());
+                
+                newWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                        if (url.contains("run.app") || url.contains("firebaseapp.com") || url.contains("google.com")) {
+                            webView.loadUrl(url); // Load back in main view
                             return true;
                         }
-                    });
-                    WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
-                    transport.setWebView(newWebView);
-                    resultMsg.sendToTarget();
-                }
+                        return false;
+                    }
+                });
+
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(newWebView);
+                resultMsg.sendToTarget();
                 return true;
             }
 
