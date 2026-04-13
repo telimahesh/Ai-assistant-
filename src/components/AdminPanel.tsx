@@ -11,7 +11,9 @@ import {
   MessageSquare, 
   ShieldAlert,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Users,
+  UserPlus
 } from "lucide-react";
 import { 
   LineChart, 
@@ -26,12 +28,23 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  setDoc, 
+  doc, 
+  getDocs, 
+  query, 
+  where, 
+  serverTimestamp 
+} from "firebase/firestore";
 
 interface AdminPanelProps {
   isOpen: boolean;
   onClose: () => void;
   history: any[];
   sessionState: string;
+  user: any;
 }
 
 const mockData = [
@@ -44,9 +57,49 @@ const mockData = [
   { time: "15:00", requests: 28, latency: 170 },
 ];
 
-export function AdminPanel({ isOpen, onClose, history, sessionState }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"monitor" | "logs" | "config">("monitor");
+export function AdminPanel({ isOpen, onClose, history, sessionState, user }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<"monitor" | "logs" | "config" | "users">("monitor");
   const [uptime, setUptime] = useState(0);
+  
+  // User Creation State
+  const [newUserId, setNewUserId] = useState("");
+  const [newUserPass, setNewUserPass] = useState("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserId || !newUserPass) return;
+    setIsCreatingUser(true);
+    setErrorMessage(null);
+    try {
+      // Check if ID already exists
+      const q = query(collection(db, "users"), where("id", "==", newUserId));
+      const existing = await getDocs(q);
+      if (!existing.empty) {
+        setErrorMessage("User ID already exists");
+        return;
+      }
+
+      // Create user doc in Firestore
+      const newUserRef = doc(collection(db, "users"));
+      await setDoc(newUserRef, {
+        id: newUserId,
+        password: newUserPass,
+        role: "user",
+        createdAt: serverTimestamp(),
+        createdBy: user?.uid
+      });
+      
+      alert(`User ${newUserId} created successfully!`);
+      setNewUserId("");
+      setNewUserPass("");
+    } catch (error: any) {
+      setErrorMessage("Failed to create user: " + error.message);
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -145,6 +198,16 @@ export function AdminPanel({ isOpen, onClose, history, sessionState }: AdminPane
                 >
                   <Settings className="w-5 h-5" />
                   <span className="text-sm font-medium">Core Config</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("users")}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                    activeTab === "users" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                  )}
+                >
+                  <Users className="w-5 h-5" />
+                  <span className="text-sm font-medium">User Management</span>
                 </button>
 
                 <div className="mt-auto p-4 bg-zinc-900/40 rounded-2xl border border-white/5">
@@ -323,46 +386,53 @@ export function AdminPanel({ isOpen, onClose, history, sessionState }: AdminPane
                   </div>
                 )}
 
-                {activeTab === "config" && (
+                {activeTab === "users" && (
                   <div className="max-w-2xl space-y-8">
                     <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl space-y-6">
-                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Persona Configuration</h3>
+                      <div className="flex items-center gap-3 mb-2">
+                        <UserPlus className="w-5 h-5 text-cyan-400" />
+                        <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Generate New User</h3>
+                      </div>
                       
-                      <div className="space-y-4">
-                        <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">System Instruction</label>
-                        <textarea 
-                          className="w-full h-48 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-mono text-zinc-300 focus:border-cyan-500 outline-none transition-colors"
-                          defaultValue={`You are Zoya, a young, confident, witty, and sassy female AI assistant...`}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-6">
+                      <form onSubmit={handleCreateUser} className="space-y-6">
                         <div className="space-y-2">
-                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Temperature</label>
-                          <input type="range" className="w-full accent-cyan-500" />
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">User ID</label>
+                          <input 
+                            type="text"
+                            value={newUserId}
+                            onChange={(e) => setNewUserId(e.target.value)}
+                            placeholder="Enter unique ID"
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                          />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Top-P</label>
-                          <input type="range" className="w-full accent-pink-500" />
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">Password</label>
+                          <input 
+                            type="text"
+                            value={newUserPass}
+                            onChange={(e) => setNewUserPass(e.target.value)}
+                            placeholder="Enter password"
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
+                          />
                         </div>
-                      </div>
 
-                      <Button className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs">
-                        Push to Production
-                      </Button>
+                        {errorMessage && (
+                          <p className="text-xs text-red-500 font-mono">{errorMessage}</p>
+                        )}
+
+                        <Button 
+                          type="submit"
+                          disabled={isCreatingUser}
+                          className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-cyan-500/20"
+                        >
+                          {isCreatingUser ? "Generating Protocol..." : "Generate User Access"}
+                        </Button>
+                      </form>
                     </div>
 
-                    <div className="p-8 bg-red-500/5 border border-red-500/10 rounded-3xl space-y-6">
-                      <h3 className="text-sm font-mono uppercase tracking-widest text-red-500 italic">Danger Zone</h3>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-zinc-200">Emergency Core Reset</p>
-                          <p className="text-xs text-zinc-500">Wipes all active sessions and reloads core instructions.</p>
-                        </div>
-                        <Button variant="destructive" className="rounded-xl px-6">
-                          RESET
-                        </Button>
-                      </div>
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl">
+                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic mb-4">Active User Directory</h3>
+                      <p className="text-xs text-zinc-500 italic">User list monitoring is currently restricted to core system logs.</p>
                     </div>
                   </div>
                 )}

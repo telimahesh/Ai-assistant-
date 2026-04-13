@@ -23,6 +23,7 @@ import {
   Edit2, 
   Monitor,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   Pause,
   Play,
@@ -339,6 +340,7 @@ export default function App() {
           await setDoc(doc(db, "users", uid), adminData);
           setCustomUser(adminData);
           setIsAdmin(true);
+          setShowAdmin(true);
           return;
         }
       }
@@ -358,6 +360,9 @@ export default function App() {
         
         setCustomUser({ ...userData, uid: uid });
         setIsAdmin(userData.role === "admin");
+        if (userData.role === "admin") {
+          setShowAdmin(true);
+        }
       } else {
         setErrorMessage("Invalid ID or Password");
         await signOut();
@@ -393,39 +398,6 @@ export default function App() {
       setErrorMessage("Failed to save AI config: " + error.message);
     } finally {
       setIsSavingAI(false);
-    }
-  };
-
-  const handleCreateUser = async (e: any) => {
-    e.preventDefault();
-    if (!newUserId || !newUserPass) return;
-    setIsCreatingUser(true);
-    try {
-      // Check if ID already exists
-      const q = query(collection(db, "users"), where("id", "==", newUserId));
-      const existing = await getDocs(q);
-      if (!existing.empty) {
-        setErrorMessage("User ID already exists");
-        return;
-      }
-
-      // Create user doc in Firestore (no Auth creation needed)
-      const newUserRef = doc(collection(db, "users"));
-      await setDoc(newUserRef, {
-        id: newUserId,
-        password: newUserPass,
-        role: "user",
-        createdAt: serverTimestamp(),
-        createdBy: user?.uid
-      });
-      
-      alert(`User ${newUserId} created successfully!`);
-      setNewUserId("");
-      setNewUserPass("");
-    } catch (error: any) {
-      setErrorMessage("Failed to create user: " + error.message);
-    } finally {
-      setIsCreatingUser(false);
     }
   };
 
@@ -981,6 +953,17 @@ export default function App() {
           >
             <Settings className="w-6 h-6" />
           </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowAdmin(true)}
+              className="text-red-400 hover:text-red-300 hover:bg-red-400/10 border border-red-400/20"
+              title="Admin Panel"
+            >
+              <ShieldAlert className="w-6 h-6" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -1262,6 +1245,7 @@ export default function App() {
         onClose={() => setShowAdmin(false)} 
         history={history}
         sessionState={state}
+        user={user}
       />
       <AnimatePresence>
         {showSettings && (
@@ -1349,19 +1333,6 @@ export default function App() {
                   >
                     AI Config
                   </button>
-                  {isAdmin && (
-                    <button
-                      onClick={() => setSettingsTab("users")}
-                      className={cn(
-                        "flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                        settingsTab === "users" 
-                          ? "bg-cyan-500 text-white shadow-lg" 
-                          : "text-zinc-500 hover:text-zinc-300"
-                      )}
-                    >
-                      Users
-                    </button>
-                  )}
                 </div>
               )}
 
@@ -1543,48 +1514,6 @@ export default function App() {
                         >
                           {isSavingAI ? "Saving..." : "Save AI Configuration"}
                         </Button>
-                      </div>
-                    </motion.div>
-                  ) : settingsTab === "users" && isAdmin ? (
-                    <motion.div
-                      key="users"
-                      initial={{ x: 20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      exit={{ x: -20, opacity: 0 }}
-                      className="space-y-6"
-                    >
-                      <div className="space-y-4">
-                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Generate New User</h3>
-                        <form onSubmit={handleCreateUser} className="space-y-4 bg-white/5 p-4 rounded-2xl border border-white/10">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">New ID</label>
-                            <input 
-                              type="text"
-                              value={newUserId}
-                              onChange={(e) => setNewUserId(e.target.value)}
-                              placeholder="Enter ID"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">New Password</label>
-                            <input 
-                              type="text"
-                              value={newUserPass}
-                              onChange={(e) => setNewUserPass(e.target.value)}
-                              placeholder="Enter Password"
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
-                            />
-                          </div>
-                          <Button 
-                            type="submit"
-                            disabled={isCreatingUser}
-                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl py-4 font-bold uppercase tracking-widest text-[10px]"
-                          >
-                            {isCreatingUser ? "Generating..." : "Generate User"}
-                          </Button>
-                          <p className="text-[8px] text-zinc-500 text-center italic">Note: You will be signed out after creation to complete the process.</p>
-                        </form>
                       </div>
                     </motion.div>
                   ) : settingsTab === "profiles" ? (
