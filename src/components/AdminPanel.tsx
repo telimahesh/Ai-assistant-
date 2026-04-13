@@ -66,6 +66,29 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
   const [newUserPass, setNewUserPass] = useState("");
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [worldUpdate, setWorldUpdate] = useState<string | null>(null);
+  const [isFetchingWorld, setIsFetchingWorld] = useState(false);
+
+  const fetchWorldUpdate = async () => {
+    setIsFetchingWorld(true);
+    setWorldUpdate(null);
+    try {
+      const response = await fetch("/api/world-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await response.json();
+      if (data.text) {
+        setWorldUpdate(data.text);
+      } else {
+        setWorldUpdate("Error: " + (data.error || "Unknown error"));
+      }
+    } catch (error: any) {
+      setWorldUpdate("Failed to fetch: " + error.message);
+    } finally {
+      setIsFetchingWorld(false);
+    }
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,6 +288,35 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* World Awareness Section */}
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl flex flex-col gap-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Zap className="w-5 h-5 text-yellow-400" />
+                          <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">World Awareness System</h3>
+                        </div>
+                        <Button 
+                          onClick={fetchWorldUpdate}
+                          disabled={isFetchingWorld}
+                          className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-full px-6"
+                        >
+                          {isFetchingWorld ? "Fetching..." : "Run Global Scan"}
+                        </Button>
+                      </div>
+                      
+                      {worldUpdate && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-6 bg-black/40 rounded-2xl border border-white/10"
+                        >
+                          <p className="text-sm text-zinc-300 leading-relaxed font-mono whitespace-pre-wrap">
+                            {worldUpdate}
+                          </p>
+                        </motion.div>
+                      )}
                     </div>
 
                     {/* Chart Area */}

@@ -204,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog(text);
+                            showWorldUpdateDialog("V2.0 - SECURE PROXY\n\n" + text);
                         } catch (JSONException e) {
                             showWorldUpdateDialog("Error parsing response: " + e.getMessage() + "\n\nRaw: " + responseData);
                         }
