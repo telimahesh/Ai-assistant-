@@ -1024,7 +1024,12 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Interaction Area */}
-      {(!user || !customUser) && isAuthReady ? (
+      {!isAuthReady ? (
+        <div className="relative flex flex-col items-center justify-center gap-4 z-10 w-full h-full">
+          <div className="w-12 h-12 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" />
+          <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest animate-pulse">Initializing Systems...</p>
+        </div>
+      ) : (!user || !customUser) ? (
         <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6">
           <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center border border-pink-500/20">
             <Sparkles className="w-12 h-12 text-pink-500" />
@@ -1062,6 +1067,16 @@ export default function App() {
             >
               {isLoggingIn ? "Logging in..." : "Login"}
             </Button>
+            
+            <div className="pt-4 border-t border-white/5 w-full">
+              <button 
+                type="button"
+                onClick={() => signOut()}
+                className="w-full text-[10px] font-mono uppercase tracking-widest text-zinc-600 hover:text-zinc-400 transition-colors"
+              >
+                Reset Session / Sign Out
+              </button>
+            </div>
           </form>
         </div>
       ) : (
