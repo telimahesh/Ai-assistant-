@@ -34,7 +34,7 @@ import { LiveSession, SessionState } from "@/lib/live-session";
 import { cn } from "@/lib/utils";
 import { AdminPanel } from "@/components/AdminPanel";
 import { SystemControls } from "./components/SystemControls";
-import { auth, db, signIn, signOut, signInAnon } from "@/lib/firebase";
+import { auth, db, signOut, signInAnon } from "@/lib/firebase";
 import { 
   collection, 
   addDoc, 
