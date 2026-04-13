@@ -45,9 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ZoyaMain";
     private final OkHttpClient client = new OkHttpClient();
     
-    // Gemini API Key: IMPORTANT - This is used for the "World Update" feature in the APK.
-    // For the main Zoya chat, the app uses the key set in the web app's settings.
-    private static final String GEMINI_API_KEY = "REPLACE_WITH_YOUR_KEY"; 
+    // Gemini API Key: No longer needed in the APK as we use a backend proxy for security.
+    // The key is now managed in AI Studio Settings.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -179,31 +178,12 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setCancelable(false);
         progressDialog.show();
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=" + GEMINI_API_KEY;
-
-        JSONObject jsonBody = new JSONObject();
-        try {
-            JSONArray contentsArray = new JSONArray();
-            JSONObject contentObject = new JSONObject();
-            JSONArray partsArray = new JSONArray();
-            JSONObject partObject = new JSONObject();
-            partObject.put("text", "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.");
-            partsArray.put(partObject);
-            contentObject.put("parts", partsArray);
-            contentsArray.put(contentObject);
-            jsonBody.put("contents", contentsArray);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        RequestBody body = RequestBody.create(
-                jsonBody.toString(),
-                MediaType.parse("application/json; charset=utf-8")
-        );
+        // Call our own backend instead of calling Gemini directly for better security
+        String url = "https://ais-pre-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app/api/world-update";
 
         Request request = new Request.Builder()
                 .url(url)
-                .post(body)
+                .post(RequestBody.create("", MediaType.parse("application/json")))
                 .build();
 
         client.newCall(request).enqueue(new Callback() {
@@ -223,22 +203,13 @@ public class MainActivity extends AppCompatActivity {
                     if (response.isSuccessful()) {
                         try {
                             JSONObject jsonResponse = new JSONObject(responseData);
-                            String text = jsonResponse.getJSONArray("candidates")
-                                    .getJSONObject(0)
-                                    .getJSONObject("content")
-                                    .getJSONArray("parts")
-                                    .getJSONObject(0)
-                                    .getString("text");
+                            String text = jsonResponse.getString("text");
                             showWorldUpdateDialog(text);
                         } catch (JSONException e) {
                             showWorldUpdateDialog("Error parsing response: " + e.getMessage() + "\n\nRaw: " + responseData);
                         }
                     } else {
-                        String errorMsg = "API Error: " + response.code();
-                        if (responseData.contains("API_KEY_INVALID")) {
-                            errorMsg += "\n\nCRITICAL: Your Gemini API Key is invalid or missing. Please update the GEMINI_API_KEY constant in MainActivity.java and set it in AI Studio Settings.";
-                        }
-                        showWorldUpdateDialog(errorMsg + "\n\nDetails: " + responseData);
+                        showWorldUpdateDialog("Server Error: " + response.code() + "\n\nDetails: " + responseData);
                     }
                 });
             }
