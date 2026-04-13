@@ -134,22 +134,22 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
             className="fixed inset-x-0 bottom-0 top-12 bg-[#0a0a0a] border-t border-white/10 z-[101] flex flex-col overflow-hidden shadow-2xl"
           >
             {/* Admin Header */}
-            <div className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-zinc-900/50">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-8 py-4 border-b border-white/10 bg-zinc-900/50 gap-4">
+              <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto scrollbar-hide w-full sm:w-auto">
+                <div className="shrink-0 flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full">
                   <ShieldAlert className="w-4 h-4 text-red-500" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500 whitespace-nowrap">
                     Admin Protocol Active
                   </span>
                 </div>
-                <div className="h-4 w-px bg-white/10" />
-                <div className="flex items-center gap-2">
+                <div className="h-4 w-px bg-white/10 shrink-0" />
+                <div className="flex items-center gap-2 shrink-0">
                   <Terminal className="w-4 h-4 text-zinc-500" />
                   <span className="text-xs font-mono text-zinc-400">ZOYA_CORE_v1.2.4</span>
                 </div>
               </div>
               
-              <div className="flex items-center gap-6">
+              <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto">
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">System Uptime</span>
                   <span className="text-sm font-mono text-cyan-400">{formatUptime(uptime)}</span>
@@ -158,7 +158,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                   variant="ghost"
                   size="icon"
                   onClick={onClose}
-                  className="text-zinc-500 hover:text-white hover:bg-white/10 rounded-full"
+                  className="text-zinc-500 hover:text-white hover:bg-white/10 rounded-full shrink-0"
                 >
                   <X className="w-6 h-6" />
                 </Button>
@@ -168,7 +168,15 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
             {/* Admin Layout */}
             <div className="flex-1 flex overflow-hidden">
               {/* Sidebar Navigation */}
-              <div className="w-64 border-r border-white/10 flex flex-col p-4 gap-2 bg-zinc-900/20">
+              <div className="w-20 sm:w-64 border-r border-white/10 flex flex-col p-2 sm:p-4 gap-2 bg-zinc-900/20">
+                <button
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 bg-pink-500/10 text-pink-500 border border-pink-500/20 mb-4 hover:bg-pink-500/20"
+                >
+                  <X className="w-5 h-5" />
+                  <span className="text-sm font-bold uppercase tracking-widest hidden sm:inline">Exit Admin</span>
+                </button>
+
                 <button
                   onClick={() => setActiveTab("monitor")}
                   className={cn(
@@ -177,7 +185,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                   )}
                 >
                   <Activity className="w-5 h-5" />
-                  <span className="text-sm font-medium">System Monitor</span>
+                  <span className="text-sm font-medium hidden sm:inline">System Monitor</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("logs")}
@@ -187,7 +195,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                   )}
                 >
                   <MessageSquare className="w-5 h-5" />
-                  <span className="text-sm font-medium">Live Logs</span>
+                  <span className="text-sm font-medium hidden sm:inline">Live Logs</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("config")}
@@ -197,7 +205,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                   )}
                 >
                   <Settings className="w-5 h-5" />
-                  <span className="text-sm font-medium">Core Config</span>
+                  <span className="text-sm font-medium hidden sm:inline">Core Config</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("users")}
@@ -207,10 +215,10 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                   )}
                 >
                   <Users className="w-5 h-5" />
-                  <span className="text-sm font-medium">User Management</span>
+                  <span className="text-sm font-medium hidden sm:inline">User Management</span>
                 </button>
 
-                <div className="mt-auto p-4 bg-zinc-900/40 rounded-2xl border border-white/5">
+                <div className="mt-auto p-4 bg-zinc-900/40 rounded-2xl border border-white/5 hidden sm:block">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-mono uppercase text-zinc-500">CPU Load</span>
                     <span className="text-[10px] font-mono text-cyan-400">12%</span>
