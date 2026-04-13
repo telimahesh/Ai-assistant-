@@ -114,10 +114,6 @@
         "selectedOpenaiModel": {
           "type": "string"
         },
-        "activeAiProvider": {
-          "type": "string",
-          "enum": ["gemini", "openai"]
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time"

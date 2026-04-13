@@ -57,7 +57,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'id', 'role', 'createdAt']) &&
-             data.keys().hasOnly(['uid', 'id', 'role', 'createdAt', 'geminiApiKey', 'openaiApiKey', 'selectedGeminiModel', 'selectedOpenaiModel', 'activeAiProvider']) &&
+             data.keys().hasOnly(['uid', 'id', 'role', 'createdAt', 'geminiApiKey', 'openaiApiKey', 'selectedGeminiModel', 'selectedOpenaiModel']) &&
              data.uid is string &&
              data.id is string &&
              data.role in ['admin', 'user'] &&
@@ -65,8 +65,7 @@ service cloud.firestore {
              (!('geminiApiKey' in data) || data.geminiApiKey is string) &&
              (!('openaiApiKey' in data) || data.openaiApiKey is string) &&
              (!('selectedGeminiModel' in data) || data.selectedGeminiModel is string) &&
-             (!('selectedOpenaiModel' in data) || data.selectedOpenaiModel is string) &&
-             (!('activeAiProvider' in data) || data.activeAiProvider in ['gemini', 'openai']);
+             (!('selectedOpenaiModel' in data) || data.selectedOpenaiModel is string);
     }
 
     // Domain Validators
