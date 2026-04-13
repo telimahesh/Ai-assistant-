@@ -238,6 +238,7 @@ export default function App() {
   const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
   const [liveTranscription, setLiveTranscription] = useState<string | null>(null);
   const [isLiveModel, setIsLiveModel] = useState(false);
+  const [globalGeminiKey, setGlobalGeminiKey] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyTab, setHistoryTab] = useState<"current" | "sessions">("current");
@@ -269,6 +270,18 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      
+      // Load global config first
+      try {
+        const configSnap = await getDocs(collection(db, "config"));
+        const globalDoc = configSnap.docs.find(d => d.id === "global");
+        if (globalDoc) {
+          setGlobalGeminiKey(globalDoc.data().geminiApiKey || "");
+        }
+      } catch (e) {
+        console.error("Error loading global config:", e);
+      }
+
       if (u) {
         // Check if custom user exists
         const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
@@ -671,11 +684,12 @@ export default function App() {
       try {
         // Request wake lock on user gesture
         await requestWakeLock();
+        const apiKeyToUse = geminiKey || globalGeminiKey;
         await sessionRef.current?.connect(
           voice, 
           personality, 
-          customUser?.geminiApiKey, 
-          customUser?.selectedGeminiModel
+          apiKeyToUse, 
+          selectedGeminiModel
         );
       } catch (error: any) {
         console.error("Connection error:", error);
@@ -1496,13 +1510,13 @@ export default function App() {
                             <h3 className="text-xs font-bold text-white uppercase tracking-widest">Gemini Configuration</h3>
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key</label>
+                            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block">API Key (Optional)</label>
                             <div className="flex gap-2">
                               <input 
                                 type="password"
                                 value={geminiKey}
                                 onChange={(e) => setGeminiKey(e.target.value)}
-                                placeholder="Enter Gemini API Key"
+                                placeholder={globalGeminiKey ? "Using System Default" : "Enter Gemini API Key"}
                                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-cyan-500 outline-none transition-colors"
                               />
                               <Button

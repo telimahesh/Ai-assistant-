@@ -69,6 +69,42 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
   const [worldUpdate, setWorldUpdate] = useState<string | null>(null);
   const [isFetchingWorld, setIsFetchingWorld] = useState(false);
 
+  // Global Config State
+  const [globalGeminiKey, setGlobalGeminiKey] = useState("");
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  useEffect(() => {
+    // Load global config
+    const loadConfig = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "config"));
+        const configDoc = querySnapshot.docs.find(d => d.id === "global");
+        if (configDoc) {
+          setGlobalGeminiKey(configDoc.data().geminiApiKey || "");
+        }
+      } catch (error) {
+        console.error("Error loading global config:", error);
+      }
+    };
+    loadConfig();
+  }, []);
+
+  const handleSaveGlobalConfig = async () => {
+    setIsSavingConfig(true);
+    try {
+      await setDoc(doc(db, "config", "global"), {
+        geminiApiKey: globalGeminiKey,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.id || "admin"
+      }, { merge: true });
+      alert("Global configuration updated successfully.");
+    } catch (error: any) {
+      alert("Error saving config: " + error.message);
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   const fetchWorldUpdate = async () => {
     setIsFetchingWorld(true);
     setWorldUpdate(null);
@@ -493,6 +529,53 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                     <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl">
                       <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic mb-4">Active User Directory</h3>
                       <p className="text-xs text-zinc-500 italic">User list monitoring is currently restricted to core system logs.</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "config" && (
+                  <div className="max-w-2xl space-y-8">
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl space-y-6">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Settings className="w-5 h-5 text-pink-500" />
+                        <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Core System Configuration</h3>
+                      </div>
+                      
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">Global Gemini API Key</label>
+                          <input 
+                            type="password"
+                            value={globalGeminiKey}
+                            onChange={(e) => setGlobalGeminiKey(e.target.value)}
+                            placeholder="Enter key for all users"
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+                          />
+                          <p className="text-[10px] text-zinc-500 italic mt-2 px-1">
+                            This key will be used by all users who haven't set their own personal API key.
+                          </p>
+                        </div>
+
+                        <Button 
+                          onClick={handleSaveGlobalConfig}
+                          disabled={isSavingConfig}
+                          className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
+                        >
+                          {isSavingConfig ? "Updating Core..." : "Save Global Configuration"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl space-y-4">
+                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">System Integrity</h3>
+                      <div className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
+                        <span className="text-xs text-zinc-400">Auto-Scaling</span>
+                        <span className="text-[10px] font-mono text-green-500">ENABLED</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
+                        <span className="text-xs text-zinc-400">Neural Proxy</span>
+                        <span className="text-[10px] font-mono text-green-500">ACTIVE</span>
+                      </div>
                     </div>
                   </div>
                 )}
