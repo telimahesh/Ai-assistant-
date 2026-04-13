@@ -40,6 +40,13 @@ export class LiveSession {
     this.setState("connecting");
 
     try {
+      // Start audio streamer immediately on user gesture to avoid AudioContext suspension
+      console.log("Starting audio streamer...");
+      await this.audioStreamer.start();
+      
+      // Small delay to allow audio hardware to stabilize on mobile devices
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Priority: 1. Passed apiKey, 2. process.env.API_KEY (from Select Key dialog), 3. process.env.GEMINI_API_KEY
       const finalApiKey = apiKey || (process.env as any).API_KEY || process.env.GEMINI_API_KEY;
       
@@ -82,7 +89,6 @@ You only communicate via audio. You are expressive, emotionally responsive, and 
           onopen: async () => {
             console.log("Live API connection opened");
             this.setState("connected");
-            await this.audioStreamer.start();
           },
           onmessage: async (message: LiveServerMessage) => {
             this.handleMessage(message);

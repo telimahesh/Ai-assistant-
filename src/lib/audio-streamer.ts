@@ -17,12 +17,25 @@ export class AudioStreamer {
   async start() {
     if (this.isRecording) return;
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Your browser does not support microphone access. Please use a modern browser like Chrome.");
+    }
+
     this.audioContext = new AudioContext({ sampleRate: 16000 });
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      this.audioContext.close();
-      this.audioContext = null;
+    } catch (err: any) {
+      if (this.audioContext) {
+        await this.audioContext.close();
+        this.audioContext = null;
+      }
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        throw new Error("Microphone permission denied. Please allow microphone access in your app settings.");
+      }
       throw err;
     }
 
