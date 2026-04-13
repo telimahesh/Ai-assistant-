@@ -45,9 +45,9 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ZoyaMain";
     private final OkHttpClient client = new OkHttpClient();
     
-    // Gemini API Key: IMPORTANT - If you change your key in AI Studio Settings, 
-    // you MUST also update this hardcoded string and rebuild the APK.
-    private static final String GEMINI_API_KEY = "AIzaSyCUpZa-30Asq5chbmAS29f7F-oxK8BpFX8"; 
+    // Gemini API Key: IMPORTANT - This is used for the "World Update" feature in the APK.
+    // For the main Zoya chat, the app uses the key set in the web app's settings.
+    private static final String GEMINI_API_KEY = "REPLACE_WITH_YOUR_KEY"; 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +68,13 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36");
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                Log.e(TAG, "WebView Error: " + description + " (" + errorCode + ") for URL: " + failingUrl);
+                // Show a user-friendly error page or a Toast
+                Toast.makeText(MainActivity.this, "Connection Error: " + description, Toast.LENGTH_LONG).show();
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 // Keep the app and auth flows inside the WebView
@@ -150,6 +157,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 fetchWorldUpdate();
+            }
+        });
+        
+        fab.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                webView.reload();
+                Toast.makeText(MainActivity.this, "Refreshing Zoya...", Toast.LENGTH_SHORT).show();
+                return true;
             }
         });
     }
