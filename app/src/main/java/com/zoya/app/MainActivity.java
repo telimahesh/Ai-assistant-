@@ -143,8 +143,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Replace with your shared app URL
-        webView.loadUrl("https://ais-pre-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app");
+        // Use the dev URL which is more likely to be active during development
+        webView.loadUrl("https://ais-dev-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app");
 
         checkPermissions();
         setupFab();
@@ -163,8 +163,11 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
+                // Clear cache and cookies on long press
+                android.webkit.CookieManager.getInstance().removeAllCookies(null);
+                webView.clearCache(true);
                 webView.reload();
-                Toast.makeText(MainActivity.this, "Refreshing Zoya...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Cache cleared & Refreshing...", Toast.LENGTH_SHORT).show();
                 return true;
             }
         });
