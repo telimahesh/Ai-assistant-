@@ -304,6 +304,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isAuthReady) {
+        setShowTroubleshooting(true);
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [isAuthReady]);
+
   const handleLogin = async (e: any) => {
     e.preventDefault();
     if (!loginId || !loginPass) return;
@@ -1025,9 +1036,34 @@ export default function App() {
 
       {/* Main Interaction Area */}
       {!isAuthReady ? (
-        <div className="relative flex flex-col items-center justify-center gap-4 z-10 w-full h-full">
+        <div className="relative flex flex-col items-center justify-center gap-6 z-10 w-full h-full px-8 text-center">
           <div className="w-12 h-12 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" />
-          <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest animate-pulse">Initializing Systems...</p>
+          <div className="space-y-2">
+            <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest animate-pulse">Initializing Systems...</p>
+            {showTroubleshooting && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="pt-8 space-y-4"
+              >
+                <p className="text-red-400 text-[10px] font-mono uppercase leading-relaxed">
+                  Stuck? This usually happens if the URL is set to "Private".
+                </p>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[8px] font-mono text-zinc-500 text-left space-y-1">
+                  <p>1. Open AI Studio Settings</p>
+                  <p>2. Change Share to "Public"</p>
+                  <p>3. Use the new Public URL</p>
+                  <p className="pt-2 text-zinc-400">Current URL: {window.location.hostname}</p>
+                </div>
+                <Button 
+                  onClick={() => window.location.reload()}
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] uppercase tracking-widest px-6 py-2 rounded-full"
+                >
+                  Force Reload
+                </Button>
+              </motion.div>
+            )}
+          </div>
         </div>
       ) : (!user || !customUser) ? (
         <div className="relative flex flex-col items-center justify-center gap-8 z-10 w-full max-w-md px-6">

@@ -123,8 +123,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || (resource.data.id == request.query.id && resource.data.password == request.query.password));
-      allow list: if isAuthenticated() && (isAdmin() || (request.query.limit <= 1 && request.query.id != null && request.query.password != null));
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAuthenticated() && (isAdmin() || request.query.limit <= 1);
       allow create: if isAuthenticated() && (isAdmin() || (request.resource.data.id == "587311" && !exists(/databases/$(database)/documents/users/$(request.auth.uid))));
       allow update: if isAuthenticated() && (isAdmin() || request.auth.uid == userId || (resource.data.id != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid'])));
       allow delete: if isAdmin();

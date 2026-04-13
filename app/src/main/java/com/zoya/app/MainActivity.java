@@ -143,8 +143,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Use the dev URL which is more likely to be active during development
-        webView.loadUrl("https://ais-dev-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app");
+        // Use the Shared App URL which is public and doesn't require Google Sign-in
+        webView.loadUrl("https://ais-pre-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app");
 
         checkPermissions();
         setupFab();
