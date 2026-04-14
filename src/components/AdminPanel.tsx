@@ -34,6 +34,7 @@ import {
   setDoc, 
   doc, 
   getDocs, 
+  onSnapshot,
   query, 
   where, 
   serverTimestamp 
@@ -74,19 +75,13 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   useEffect(() => {
-    // Load global config
-    const loadConfig = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "config"));
-        const configDoc = querySnapshot.docs.find(d => d.id === "global");
-        if (configDoc) {
-          setGlobalGeminiKey(configDoc.data().geminiApiKey || "");
-        }
-      } catch (error) {
-        console.error("Error loading global config:", error);
+    // Listen to global config in real-time
+    const unsubscribe = onSnapshot(doc(db, "config", "global"), (doc) => {
+      if (doc.exists()) {
+        setGlobalGeminiKey(doc.data().geminiApiKey || "");
       }
-    };
-    loadConfig();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSaveGlobalConfig = async () => {
@@ -111,7 +106,8 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
     try {
       const response = await fetch("/api/world-update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: globalGeminiKey })
       });
       const data = await response.json();
       if (data.text) {
@@ -548,11 +544,11 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                             type="password"
                             value={globalGeminiKey}
                             onChange={(e) => setGlobalGeminiKey(e.target.value)}
-                            placeholder="Enter key for all users"
+                            placeholder="Leave blank to use System Free Key"
                             className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-pink-500 outline-none transition-colors"
                           />
                           <p className="text-[10px] text-zinc-500 italic mt-2 px-1">
-                            This key will be used by all users who haven't set their own personal API key.
+                            This key will be used by all users who haven't set their own personal API key. If left blank, the system's built-in free key will be used.
                           </p>
                         </div>
 

@@ -191,10 +191,11 @@ const PERSONALITY_TEMPLATES = [
 // Other models will be used for text-only tasks if implemented, or automatically 
 // upgraded to the live-compatible version for voice sessions.
 const GEMINI_MODELS = [
-  "gemini-3.1-flash-live-preview",
-  "gemini-3-flash-preview",
-  "gemini-3.1-pro-preview",
-  "gemini-2.5-flash-image"
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite-preview-02-05",
+  "gemini-2.0-pro-exp-02-05",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro"
 ];
 
 const OPENAI_MODELS = [
@@ -266,22 +267,19 @@ export default function App() {
     }
   };
 
-  // Auth Listener
+  // Auth & Config Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+    // 1. Listen to Global Config in real-time
+    const unsubscribeConfig = onSnapshot(doc(db, "config", "global"), (doc) => {
+      if (doc.exists()) {
+        setGlobalGeminiKey(doc.data().geminiApiKey || "");
+      }
+    });
+
+    // 2. Listen to Auth State
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       
-      // Load global config first
-      try {
-        const configSnap = await getDocs(collection(db, "config"));
-        const globalDoc = configSnap.docs.find(d => d.id === "global");
-        if (globalDoc) {
-          setGlobalGeminiKey(globalDoc.data().geminiApiKey || "");
-        }
-      } catch (e) {
-        console.error("Error loading global config:", e);
-      }
-
       if (u) {
         // Check if custom user exists
         const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
@@ -314,7 +312,10 @@ export default function App() {
         setIsAuthReady(true);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribeConfig();
+      unsubscribeAuth();
+    };
   }, []);
 
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
@@ -685,6 +686,12 @@ export default function App() {
         // Request wake lock on user gesture
         await requestWakeLock();
         const apiKeyToUse = geminiKey || globalGeminiKey;
+        if (!apiKeyToUse && !process.env.GEMINI_API_KEY) {
+          setErrorMessage("API Key is missing. Please set it in Settings.");
+          setState("disconnected");
+          return;
+        }
+        
         await sessionRef.current?.connect(
           voice, 
           personality, 
@@ -1529,7 +1536,7 @@ export default function App() {
                               </Button>
                             </div>
                             <p className="text-[8px] text-zinc-500 italic mt-1 px-1">
-                              Tip: If you get "Network error", try selecting a paid key from your Google Cloud project.
+                              Tip: Leave blank to use the free system key. If you get "Network error", try selecting a paid key.
                             </p>
                           </div>
                           <div className="space-y-2">
@@ -1885,7 +1892,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.1</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.2</span>
         </div>
       </div>
 

@@ -28,6 +28,10 @@ export class AudioStreamer {
 
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Resume context again after stream is acquired, some browsers need this
+      if (this.audioContext.state === "suspended") {
+        await this.audioContext.resume();
+      }
     } catch (err: any) {
       if (this.audioContext) {
         await this.audioContext.close();

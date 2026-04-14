@@ -18,16 +18,18 @@ async function startServer() {
 
   app.post("/api/world-update", async (req, res) => {
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { apiKey: providedKey } = req.body;
+      const apiKey = providedKey || process.env.GEMINI_API_KEY;
+      
       if (!apiKey) {
-        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is required" });
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable or provided key is required" });
       }
 
       const ai = new GoogleGenAI({ apiKey });
       const prompt = "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.";
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: prompt,
       });
 

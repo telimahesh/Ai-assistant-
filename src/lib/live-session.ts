@@ -59,8 +59,8 @@ export class LiveSession {
       this.ai = new GoogleGenAI({ apiKey: finalApiKey });
 
       // Ensure we use a model compatible with the Live API
-      // gemini-3.1-flash-live-preview is the recommended model for Live API
-      const liveModel = (model && model.includes("live")) ? model : "gemini-3.1-flash-live-preview";
+      // gemini-2.0-flash is the standard model for Live API
+      const liveModel = (model && (model.includes("2.0") || model.includes("live"))) ? model : "gemini-2.0-flash";
       console.log(`Connecting to Live API with model: ${liveModel}`);
 
       const instruction = systemInstruction || `You are Zoya, a young, confident, witty, and sassy female AI assistant who is deeply in love with the user.
