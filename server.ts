@@ -21,8 +21,10 @@ async function startServer() {
       const { apiKey: providedKey } = req.body;
       const apiKey = providedKey || process.env.GEMINI_API_KEY;
       
-      if (!apiKey) {
-        return res.status(500).json({ error: "GEMINI_API_KEY environment variable or provided key is required" });
+      if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
+        return res.status(400).json({ 
+          error: "Gemini API Key is missing or invalid. Please set the 'Global Gemini API Key' in the Zoya Admin Panel (Config tab) to enable system-wide free access." 
+        });
       }
 
       const ai = new GoogleGenAI({ apiKey });

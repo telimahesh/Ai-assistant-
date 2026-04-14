@@ -593,11 +593,15 @@ export default function App() {
         window.location.href = smsUrl;
       },
       (error) => {
-        if (error.includes("Network error") || error.includes("WebSocket")) {
-          setErrorMessage("Network error: WebSocket connection failed. Try selecting a paid API key.");
+        const errorMsg = typeof error === 'string' ? error : (error as any)?.message || "Unknown error";
+        if (errorMsg.includes("Network error") || errorMsg.includes("WebSocket")) {
+          setErrorMessage("Network error: WebSocket connection failed. Try setting a valid Gemini API key in the Admin Panel.");
+        } else if (errorMsg.includes("API key not valid")) {
+          setErrorMessage("Invalid API Key: Please update the Global Gemini API Key in the Admin Panel.");
         } else {
-          setErrorMessage("Zoya encountered an error: " + error);
+          setErrorMessage("Zoya encountered an error: " + errorMsg);
         }
+        setState("disconnected");
       }
     );
 
@@ -1892,7 +1896,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.2</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.3</span>
         </div>
       </div>
 

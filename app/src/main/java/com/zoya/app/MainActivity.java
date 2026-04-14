@@ -166,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
                 android.webkit.CookieManager.getInstance().removeAllCookies(null);
                 webView.clearCache(true);
                 webView.reload();
-                Toast.makeText(MainActivity.this, "Cache cleared & Refreshing...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "System Cache Cleared", Toast.LENGTH_SHORT).show();
                 return true;
             }
         });
@@ -174,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchWorldUpdate() {
         final ProgressDialog progressDialog = new ProgressDialog(this);
-        progressDialog.setMessage("Fetching world awareness update...");
+        progressDialog.setMessage("Syncing with Zoya Core...");
         progressDialog.setCancelable(false);
         progressDialog.show();
 
@@ -208,6 +208,8 @@ public class MainActivity extends AppCompatActivity {
                         } catch (JSONException e) {
                             showWorldUpdateDialog("Error parsing response: " + e.getMessage() + "\n\nRaw: " + responseData);
                         }
+                    } else if (response.code() == 400) {
+                        showWorldUpdateDialog("Setup Required: The Gemini API Key is missing or invalid. Please log in as Admin in the app and set the 'Global Gemini API Key' in the Config tab.");
                     } else {
                         showWorldUpdateDialog("Server Error: " + response.code() + "\n\nDetails: " + responseData);
                     }
