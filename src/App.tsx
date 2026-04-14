@@ -288,12 +288,12 @@ export default function App() {
           let currentGeminiModel = userData.selectedGeminiModel || GEMINI_MODELS[0];
           
           // Migration: gemini-2.0-flash-exp and 1.5 series are deprecated/prohibited
-          const deprecatedModels = ["gemini-2.0-flash-exp", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"];
+          const deprecatedModels = ["gemini-2.0-flash-exp", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b", "gemini-3.1-flash-live-preview"];
           if (deprecatedModels.includes(currentGeminiModel)) {
-            currentGeminiModel = "gemini-3.1-flash-live-preview";
+            currentGeminiModel = "gemini-2.0-flash";
           }
 
-          setCustomUser(userData);
+          setCustomUser({ ...userData, docId: userDoc.docs[0].id });
           setIsAdmin(userData.role === "admin");
           setGeminiKey(userData.geminiApiKey || "");
           setOpenaiKey(userData.openaiApiKey || "");
@@ -363,7 +363,7 @@ export default function App() {
             createdAt: serverTimestamp()
           };
           await setDoc(doc(db, "users", uid), adminData);
-          setCustomUser(adminData);
+          setCustomUser({ ...adminData, docId: uid });
           setIsAdmin(true);
           setShowAdmin(true);
           return;
@@ -383,7 +383,7 @@ export default function App() {
           await updateDoc(doc(db, "users", userDoc.id), { uid: uid });
         }
         
-        setCustomUser({ ...userData, uid: uid });
+        setCustomUser({ ...userData, uid: uid, docId: userDoc.id });
         setIsAdmin(userData.role === "admin");
         if (userData.role === "admin") {
           setShowAdmin(true);
@@ -404,19 +404,22 @@ export default function App() {
     if (!user || !customUser) return;
     setIsSavingAI(true);
     try {
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+      const docId = customUser.docId || user.uid;
+      const userRef = doc(db, "users", docId);
+      await setDoc(userRef, {
         geminiApiKey: geminiKey,
         openaiApiKey: openaiKey,
         selectedGeminiModel: selectedGeminiModel,
         selectedOpenaiModel: selectedOpenaiModel
-      });
+      }, { merge: true });
+      
       setCustomUser((prev: any) => ({
         ...prev,
         geminiApiKey: geminiKey,
         openaiApiKey: openaiKey,
         selectedGeminiModel: selectedGeminiModel,
-        selectedOpenaiModel: selectedOpenaiModel
+        selectedOpenaiModel: selectedOpenaiModel,
+        docId: docId
       }));
       alert("AI Configuration saved successfully!");
     } catch (error: any) {
@@ -1896,7 +1899,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.3</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.4</span>
         </div>
       </div>
 
