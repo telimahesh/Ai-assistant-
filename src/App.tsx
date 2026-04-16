@@ -928,12 +928,12 @@ export default function App() {
 
   const getStatusText = () => {
     switch (state) {
-      case "connecting": return "Connecting to Zoya...";
-      case "listening": return "Zoya is Listening";
-      case "speaking": return "Zoya is Speaking";
-      case "connected": return "Connected & Ready";
-      case "paused": return "Session Paused";
-      default: return "Zoya is Offline";
+      case "connecting": return "Syncing Core...";
+      case "listening": return "Zoya Listening";
+      case "speaking": return "Zoya Speaking";
+      case "connected": return "Operational";
+      case "paused": return "Paused";
+      default: return "Standby";
     }
   };
 
@@ -1910,7 +1910,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.7</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.8</span>
         </div>
       </div>
 

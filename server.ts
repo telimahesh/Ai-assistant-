@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -19,16 +20,30 @@ async function startServer() {
   app.post("/api/world-update", async (req, res) => {
     try {
       const { apiKey: providedKey } = req.body;
+      let apiKey = providedKey || process.env.GEMINI_API_KEY;
       
-      // Log for debugging (don't log full key in production usually, but here we need to see what's missing)
-      console.log("World Update Request. Provided Key present:", !!providedKey);
-      
-      const apiKey = providedKey || process.env.GEMINI_API_KEY;
-      
+      // If still no key, try to fetch from Firestore REST API
       if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
-        console.warn("World Update Failed: No valid API Key found.");
+        try {
+          const config = JSON.parse(await fs.promises.readFile(path.join(process.cwd(), "firebase-applet-config.json"), "utf8"));
+          const projectId = config.projectId;
+          const firestoreRes = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/config/global`);
+          if (firestoreRes.ok) {
+            const firestoreData = await firestoreRes.json();
+            const dbKey = firestoreData?.fields?.geminiApiKey?.stringValue;
+            if (dbKey && dbKey.length > 10) {
+              apiKey = dbKey;
+              console.log("Using Gemini API Key from Firestore.");
+            }
+          }
+        } catch (dbError) {
+          console.error("Failed to fetch key from Firestore:", dbError);
+        }
+      }
+
+      if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
         return res.status(400).json({ 
-          error: "Gemini API Key is missing or invalid. Please log in as Admin (ID: 587311, Pass: admin123) and set the 'Global Gemini API Key' in the Config tab." 
+          error: "Configuration Required: Please log in as Admin (ID: 587311, Pass: admin123) and set the 'Global Gemini API Key' in the Config tab." 
         });
       }
 
@@ -36,7 +51,7 @@ async function startServer() {
       const prompt = "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.";
       
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: prompt,
       });
 

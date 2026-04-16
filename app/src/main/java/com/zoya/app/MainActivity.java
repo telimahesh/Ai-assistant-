@@ -199,6 +199,7 @@ public class MainActivity extends AppCompatActivity {
                 .url(apiUrl)
                 .addHeader("User-Agent", userAgent)
                 .addHeader("Cookie", cookies != null ? cookies : "")
+                .addHeader("Referer", baseUrl + "/")
                 .post(RequestBody.create("{}", MediaType.parse("application/json")))
                 .build();
 
@@ -207,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call call, IOException e) {
                 runOnUiThread(() -> {
                     progressDialog.dismiss();
-                    Toast.makeText(MainActivity.this, "Network Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Connection Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
 
@@ -218,11 +219,19 @@ public class MainActivity extends AppCompatActivity {
                     progressDialog.dismiss();
                     if (response.isSuccessful()) {
                         try {
+                            // First, check if the response looks like HTML (bot check)
+                            if (responseData.toLowerCase().contains("<!doctype") || responseData.toLowerCase().contains("<html")) {
+                                showWorldUpdateDialog("Security Check Required: Please interact with the app for 10 seconds and try again.\n\n(Zoya is making sure you're human!)");
+                                webView.reload(); // Refresh to ensure cookies are fresh
+                                return;
+                            }
+                            
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog("V2.6 - GLOBAL SYNC\n\n" + text);
+                            showWorldUpdateDialog("V2.8 - CORE SYNC\n\n" + text);
                         } catch (JSONException e) {
-                            showWorldUpdateDialog("System Busy: Please try again in a few moments.\n\n(Technical: JSON Parse Error)");
+                            showWorldUpdateDialog("System Calibration Required: Please try once more in 5 seconds.");
+                            Log.e(TAG, "JSON Parse Error: " + e.getMessage() + " | Data: " + responseData);
                         }
                     } else if (response.code() == 400) {
                         try {
