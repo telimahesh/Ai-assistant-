@@ -178,12 +178,28 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setCancelable(false);
         progressDialog.show();
 
-        // Call our own backend instead of calling Gemini directly for better security
-        String url = "https://ais-pre-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app/api/world-update";
+        // Use the current URL as base to handle redirects or custom domains correctly
+        String baseUrl = webView.getUrl();
+        if (baseUrl == null || baseUrl.isEmpty() || !baseUrl.contains("run.app")) {
+            baseUrl = "https://ais-pre-f52mjptsf7gkx2qpse2dvp-434933623132.asia-east1.run.app";
+        }
+        
+        // Ensure clean base URL without query strings
+        if (baseUrl.contains("?")) baseUrl = baseUrl.split("\\?")[0];
+        if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        
+        final String apiUrl = baseUrl + "/api/world-update";
+        
+        // SYNC AUTH: Get current cookies from the WebView to pass it to the native request
+        // This solves the "Cookie check" / "DOCTYPE HTML" error caused by bot protection
+        String cookies = android.webkit.CookieManager.getInstance().getCookie(baseUrl);
+        String userAgent = webView.getSettings().getUserAgentString();
 
         Request request = new Request.Builder()
-                .url(url)
-                .post(RequestBody.create("", MediaType.parse("application/json")))
+                .url(apiUrl)
+                .addHeader("User-Agent", userAgent)
+                .addHeader("Cookie", cookies != null ? cookies : "")
+                .post(RequestBody.create("{}", MediaType.parse("application/json")))
                 .build();
 
         client.newCall(request).enqueue(new Callback() {
@@ -191,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call call, IOException e) {
                 runOnUiThread(() -> {
                     progressDialog.dismiss();
-                    Toast.makeText(MainActivity.this, "Failed to fetch update: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Network Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
 
@@ -204,14 +220,17 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog("V2.0 - SECURE PROXY\n\n" + text);
+                            showWorldUpdateDialog("V2.6 - GLOBAL SYNC\n\n" + text);
                         } catch (JSONException e) {
-                            showWorldUpdateDialog("Error parsing response: " + e.getMessage() + "\n\nRaw: " + responseData);
+                            showWorldUpdateDialog("System Busy: Please try again in a few moments.\n\n(Technical: JSON Parse Error)");
                         }
                     } else if (response.code() == 400) {
-                        showWorldUpdateDialog("Setup Required: The Gemini API Key is missing or invalid. Please log in as Admin in the app and set the 'Global Gemini API Key' in the Config tab.");
+                        showWorldUpdateDialog("Configuration Required: The Global Gemini API Key is not set. Please log in as Admin and set the key in the Config tab.");
+                    } else if (response.code() == 403 || response.code() == 401) {
+                        showWorldUpdateDialog("Session Expired: Re-opening Zoya to refresh your session...");
+                        webView.reload();
                     } else {
-                        showWorldUpdateDialog("Server Error: " + response.code() + "\n\nDetails: " + responseData);
+                        showWorldUpdateDialog("System Error (" + response.code() + "): " + response.message());
                     }
                 });
             }
