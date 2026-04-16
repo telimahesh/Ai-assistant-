@@ -373,8 +373,8 @@ export default function App() {
       const data = await response.json();
       if (data.text) {
         setErrorMessage("ZOYA WORLD UPDATE: " + data.text.substring(0, 120) + "...");
-      } else if (data.error?.toLowerCase().includes("leaked")) {
-        setErrorMessage("SECURITY ALERT: This API key is LEAKED. Please update it in Admin Panel.");
+      } else if (data.error) {
+        setErrorMessage(data.error);
       }
     } catch (e) {
       setErrorMessage("World sync failed. Core processing error.");

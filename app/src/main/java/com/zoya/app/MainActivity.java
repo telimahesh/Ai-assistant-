@@ -237,15 +237,28 @@ public class MainActivity extends AppCompatActivity {
                             }
                             
                             JSONObject jsonResponse = new JSONObject(responseData);
-                            String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog("V3.0 - CORE SYNC\n\n" + text);
+                            if (jsonResponse.has("text")) {
+                                String text = jsonResponse.getString("text");
+                                showWorldUpdateDialog("V3.0 - CORE SYNC\n\n" + text);
+                            } else {
+                                String error = jsonResponse.optString("error", "Configuration Required");
+                                if (error.toLowerCase().contains("leaked")) {
+                                    showWorldUpdateDialog("SECURITY ALERT: Your API Key was reported as LEAKED and disabled by Google.");
+                                } else if (error.toLowerCase().contains("quota") || error.toLowerCase().contains("429")) {
+                                    showWorldUpdateDialog("QUOTA EXCEEDED: The system's API key has hit its usage limit. Please wait or update the key in Admin Panel.");
+                                } else {
+                                    showWorldUpdateDialog(error);
+                                }
+                            }
                         } catch (JSONException e) {
                             if (responseData.toLowerCase().contains("leaked")) {
-                                showWorldUpdateDialog("SECURITY ALERT: Your API Key was reported as LEAKED and disabled by Google.\n\nPlease generate a NEW key at: aistudio.google.com and update it in the Admin Panel.");
+                                showWorldUpdateDialog("SECURITY ALERT: Your API Key was reported as LEAKED and disabled by Google.");
+                            } else if (responseData.toLowerCase().contains("quota") || responseData.toLowerCase().contains("429")) {
+                                showWorldUpdateDialog("QUOTA EXCEEDED: The system's API key has hit its usage limit.");
                             } else {
                                 showWorldUpdateDialog("Sync Initialized: Please try once more in 5 seconds to complete the handshake.");
                             }
-                            Log.e(TAG, "JSON Parse Error: " + e.getMessage() + " | Data: " + responseData);
+                            Log.e(TAG, "JSON Parse Error: " + e.getMessage());
                         }
                     } else if (response.code() >= 300 && response.code() < 400) {
                         // Manual redirect handling for Cloud Run security challenges

@@ -130,8 +130,10 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
         let err = data.error || "Unknown error";
         if (err.toLowerCase().includes("leaked")) {
           err = "SECURITY ALERT: This API key is LEAKED. You MUST generate a NEW key at aistudio.google.com and save it in the Config tab below.";
+        } else if (err.toLowerCase().includes("quota") || err.toLowerCase().includes("429")) {
+          err = "QUOTA EXCEEDED: The system's API key has hit its limit. Please switch to a Paid API key in Config for unlimited scans.";
         }
-        setWorldUpdate("Error: " + err);
+        setWorldUpdate("PROTOCOL_ERROR: " + err);
       }
     } catch (error: any) {
       setWorldUpdate("Failed to fetch: " + error.message);

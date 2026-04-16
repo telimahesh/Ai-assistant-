@@ -59,9 +59,24 @@ async function startServer() {
     } catch (error: any) {
       console.error("Gemini API Error:", error);
       let errorMsg = error.message;
+      
+      // Handle known error patterns
       if (errorMsg.includes("leaked")) {
         errorMsg = "CRITICAL SECURITY ERROR: This API Key has been leaked and disabled by Google. You MUST generate a NEW API Key at https://aistudio.google.com/app/apikey and update it in the Admin Panel.";
+      } else if (errorMsg.includes("429") || errorMsg.includes("quota")) {
+        errorMsg = "QUOTA EXCEEDED: The system's current Gemini API Key has hit its limit or has no quota. Please wait, check your billing status at ai.google.dev, or log in as Admin to configure a Paid API key.";
+      } else if (errorMsg.includes("403") || errorMsg.includes("permission")) {
+        errorMsg = "PERMISSION DENIED: The current API key does not have permission to access this model. Please check your API key settings.";
+      } else {
+        // Try to parse if it's a JSON stringified error from the SDK
+        try {
+          const parsed = JSON.parse(errorMsg);
+          if (parsed.error?.message) errorMsg = parsed.error.message;
+        } catch (e) {
+          // Not JSON, keep original message
+        }
       }
+      
       res.status(500).json({ error: errorMsg });
     }
   });
