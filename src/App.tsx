@@ -601,6 +601,8 @@ export default function App() {
           setErrorMessage("Network error: WebSocket connection failed. Try setting a valid Gemini API key in the Admin Panel.");
         } else if (errorMsg.includes("API key not valid")) {
           setErrorMessage("Invalid API Key: Please update the Global Gemini API Key in the Admin Panel.");
+        } else if (errorMsg.toLowerCase().includes("leaked")) {
+          setErrorMessage("SECURITY ALERT: This API key was reported as LEAKED and disabled by Google. Please generate a NEW key at aistudio.google.com and update it in the Admin Config.");
         } else {
           setErrorMessage("Zoya encountered an error: " + errorMsg);
         }
@@ -1910,7 +1912,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.8</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.9</span>
         </div>
       </div>
 

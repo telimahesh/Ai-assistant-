@@ -113,7 +113,11 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
       if (data.text) {
         setWorldUpdate(data.text);
       } else {
-        setWorldUpdate("Error: " + (data.error || "Unknown error"));
+        let err = data.error || "Unknown error";
+        if (err.toLowerCase().includes("leaked")) {
+          err = "SECURITY ALERT: This API key is LEAKED. You MUST generate a NEW key at aistudio.google.com and save it in the Config tab below.";
+        }
+        setWorldUpdate("Error: " + err);
       }
     } catch (error: any) {
       setWorldUpdate("Failed to fetch: " + error.message);

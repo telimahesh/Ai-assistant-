@@ -58,7 +58,11 @@ async function startServer() {
       res.json({ text: response.text });
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      res.status(500).json({ error: error.message });
+      let errorMsg = error.message;
+      if (errorMsg.includes("leaked")) {
+        errorMsg = "CRITICAL SECURITY ERROR: This API Key has been leaked and disabled by Google. You MUST generate a NEW API Key at https://aistudio.google.com/app/apikey and update it in the Admin Panel.";
+      }
+      res.status(500).json({ error: errorMsg });
     }
   });
 

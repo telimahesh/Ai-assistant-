@@ -228,16 +228,24 @@ public class MainActivity extends AppCompatActivity {
                             
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog("V2.8 - CORE SYNC\n\n" + text);
+                            showWorldUpdateDialog("V2.9 - CORE SYNC\n\n" + text);
                         } catch (JSONException e) {
-                            showWorldUpdateDialog("System Calibration Required: Please try once more in 5 seconds.");
+                            if (responseData.toLowerCase().contains("leaked")) {
+                                showWorldUpdateDialog("SECURITY ALERT: Your API Key was reported as LEAKED and disabled by Google.\n\nPlease generate a NEW key at: aistudio.google.com and update it in the Admin Panel.");
+                            } else {
+                                showWorldUpdateDialog("System Calibration Required: Please try once more in 5 seconds.");
+                            }
                             Log.e(TAG, "JSON Parse Error: " + e.getMessage() + " | Data: " + responseData);
                         }
-                    } else if (response.code() == 400) {
+                    } else if (response.code() == 400 || response.code() == 500) {
                         try {
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String error = jsonResponse.optString("error", "Configuration Required: Please set the Global Gemini API Key in the Admin Panel.");
-                            showWorldUpdateDialog(error);
+                            if (error.toLowerCase().contains("leaked")) {
+                                showWorldUpdateDialog("SECURITY ALERT: Your API Key has been LEAKED and disabled by Google.\n\nPlease log in as Admin and set a NEW key in the Config tab.");
+                            } else {
+                                showWorldUpdateDialog(error);
+                            }
                         } catch (Exception e) {
                             showWorldUpdateDialog("Configuration Required: Please log in as Admin (ID: 587311, Pass: admin123) and set the Global Gemini API Key in the Config tab.");
                         }
