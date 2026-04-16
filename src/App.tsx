@@ -684,12 +684,18 @@ export default function App() {
   };
 
   const toggleSession = async () => {
+    setErrorMessage(null);
     if (state === "disconnected") {
+      console.log("Starting session toggle...");
       const activeProfile = profiles.find(p => p.id === activeProfileId);
       const voice = activeProfile?.voiceName || selectedVoice;
       const personality = activeProfile?.personality || "";
       
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Microphone API not available. If you are on Android, please ensure you allow permissions.");
+        }
+
         // Request wake lock on user gesture
         await requestWakeLock();
         const apiKeyToUse = geminiKey || globalGeminiKey;
@@ -699,6 +705,7 @@ export default function App() {
           return;
         }
         
+        console.log("Calling connect...");
         await sessionRef.current?.connect(
           voice, 
           personality, 
@@ -706,22 +713,25 @@ export default function App() {
           selectedGeminiModel
         );
       } catch (error: any) {
-        console.error("Connection error:", error);
+        console.error("Connection error in App.tsx:", error);
         const errorMsg = error?.message || String(error);
-        if (errorMsg.includes("GEMINI_API_KEY")) {
-          setErrorMessage("Gemini API Key is missing. Please set GEMINI_API_KEY in AI Studio Settings.");
+        if (errorMsg.includes("GEMINI_API_KEY") || errorMsg.includes("API Key is missing")) {
+          setErrorMessage("Gemini API Key is missing. Please set it in the settings.");
         } else if (errorMsg.includes("Network error") || errorMsg.includes("WebSocket")) {
-          setErrorMessage("Network error: WebSocket connection failed. Try selecting a paid API key.");
+          setErrorMessage("Network error: WebSocket failed. Check your internet or API key.");
         } else {
-          setErrorMessage("Failed to connect: " + errorMsg);
+          setErrorMessage("Could not start: " + errorMsg);
         }
         setState("disconnected");
       }
     } else {
+      console.log("Disconnecting session...");
       sessionRef.current?.disconnect();
       stopScreenShare();
       if (wakeLock) {
-        await wakeLock.release();
+        try {
+          await wakeLock.release();
+        } catch (e) {}
         setWakeLock(null);
       }
     }
@@ -918,11 +928,12 @@ export default function App() {
 
   const getStatusText = () => {
     switch (state) {
-      case "connecting": return "Waking up Zoya...";
-      case "listening": return "Zoya is listening...";
-      case "speaking": return "Zoya is talking...";
-      case "connected": return "Ready for Zoya";
-      default: return "Zoya is sleeping";
+      case "connecting": return "Connecting to Zoya...";
+      case "listening": return "Zoya is Listening";
+      case "speaking": return "Zoya is Speaking";
+      case "connected": return "Connected & Ready";
+      case "paused": return "Session Paused";
+      default: return "Zoya is Offline";
     }
   };
 
@@ -1899,7 +1910,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.4</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.5</span>
         </div>
       </div>
 
