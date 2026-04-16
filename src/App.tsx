@@ -1912,7 +1912,7 @@ export default function App() {
 
         <div className="flex items-center gap-2 text-zinc-500">
           <Globe className="w-4 h-4" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V2.9</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest">Real-time Session // V3.0</span>
         </div>
       </div>
 

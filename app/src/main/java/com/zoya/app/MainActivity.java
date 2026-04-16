@@ -43,7 +43,12 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private static final int PERMISSION_REQUEST_CODE = 1234;
     private static final String TAG = "ZoyaMain";
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client = new OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
     
     // Gemini API Key: No longer needed in the APK as we use a backend proxy for security.
     // The key is now managed in AI Studio Settings.
@@ -208,7 +213,12 @@ public class MainActivity extends AppCompatActivity {
             public void onFailure(Call call, IOException e) {
                 runOnUiThread(() -> {
                     progressDialog.dismiss();
-                    Toast.makeText(MainActivity.this, "Connection Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    String msg = e.getMessage();
+                    if (msg.contains("follow-up")) {
+                        msg = "Bot check loop detected. Please wait 10 seconds and try again.";
+                        webView.reload();
+                    }
+                    Toast.makeText(MainActivity.this, "Connection Error: " + msg, Toast.LENGTH_LONG).show();
                 });
             }
 
@@ -221,22 +231,26 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             // First, check if the response looks like HTML (bot check)
                             if (responseData.toLowerCase().contains("<!doctype") || responseData.toLowerCase().contains("<html")) {
-                                showWorldUpdateDialog("Security Check Required: Please interact with the app for 10 seconds and try again.\n\n(Zoya is making sure you're human!)");
+                                showWorldUpdateDialog("Security Check Required: Please interact with the app for 10 seconds and try again.\n\n(Zoya is verifying your connection)");
                                 webView.reload(); // Refresh to ensure cookies are fresh
                                 return;
                             }
                             
                             JSONObject jsonResponse = new JSONObject(responseData);
                             String text = jsonResponse.getString("text");
-                            showWorldUpdateDialog("V2.9 - CORE SYNC\n\n" + text);
+                            showWorldUpdateDialog("V3.0 - CORE SYNC\n\n" + text);
                         } catch (JSONException e) {
                             if (responseData.toLowerCase().contains("leaked")) {
                                 showWorldUpdateDialog("SECURITY ALERT: Your API Key was reported as LEAKED and disabled by Google.\n\nPlease generate a NEW key at: aistudio.google.com and update it in the Admin Panel.");
                             } else {
-                                showWorldUpdateDialog("System Calibration Required: Please try once more in 5 seconds.");
+                                showWorldUpdateDialog("Sync Initialized: Please try once more in 5 seconds to complete the handshake.");
                             }
                             Log.e(TAG, "JSON Parse Error: " + e.getMessage() + " | Data: " + responseData);
                         }
+                    } else if (response.code() >= 300 && response.code() < 400) {
+                        // Manual redirect handling for Cloud Run security challenges
+                        showWorldUpdateDialog("Security Handshake Required: Please refresh the app and wait 5 seconds before trying again.");
+                        webView.reload();
                     } else if (response.code() == 400 || response.code() == 500) {
                         try {
                             JSONObject jsonResponse = new JSONObject(responseData);
