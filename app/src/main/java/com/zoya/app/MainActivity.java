@@ -225,7 +225,13 @@ public class MainActivity extends AppCompatActivity {
                             showWorldUpdateDialog("System Busy: Please try again in a few moments.\n\n(Technical: JSON Parse Error)");
                         }
                     } else if (response.code() == 400) {
-                        showWorldUpdateDialog("Configuration Required: The Global Gemini API Key is not set. Please log in as Admin and set the key in the Config tab.");
+                        try {
+                            JSONObject jsonResponse = new JSONObject(responseData);
+                            String error = jsonResponse.optString("error", "Configuration Required: Please set the Global Gemini API Key in the Admin Panel.");
+                            showWorldUpdateDialog(error);
+                        } catch (Exception e) {
+                            showWorldUpdateDialog("Configuration Required: Please log in as Admin (ID: 587311, Pass: admin123) and set the Global Gemini API Key in the Config tab.");
+                        }
                     } else if (response.code() == 403 || response.code() == 401) {
                         showWorldUpdateDialog("Session Expired: Re-opening Zoya to refresh your session...");
                         webView.reload();

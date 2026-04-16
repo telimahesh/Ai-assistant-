@@ -19,11 +19,16 @@ async function startServer() {
   app.post("/api/world-update", async (req, res) => {
     try {
       const { apiKey: providedKey } = req.body;
+      
+      // Log for debugging (don't log full key in production usually, but here we need to see what's missing)
+      console.log("World Update Request. Provided Key present:", !!providedKey);
+      
       const apiKey = providedKey || process.env.GEMINI_API_KEY;
       
       if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
+        console.warn("World Update Failed: No valid API Key found.");
         return res.status(400).json({ 
-          error: "Gemini API Key is missing or invalid. Please set the 'Global Gemini API Key' in the Zoya Admin Panel (Config tab) to enable system-wide free access." 
+          error: "Gemini API Key is missing or invalid. Please log in as Admin (ID: 587311, Pass: admin123) and set the 'Global Gemini API Key' in the Config tab." 
         });
       }
 

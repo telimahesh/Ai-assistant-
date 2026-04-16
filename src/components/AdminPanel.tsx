@@ -551,13 +551,13 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                             This key will be used by all users who haven't set their own personal API key. If left blank, the system's built-in free key will be used.
                           </p>
                           {!globalGeminiKey && (
-                            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
+                            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-pulse">
                               <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                               <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Setup Required</p>
+                                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Action Required: World Update Disabled</p>
                                 <p className="text-[10px] text-red-500/80 italic leading-relaxed">
-                                  You MUST set a valid Gemini API Key here to enable the voice assistant for all users. 
-                                  Without this, the app will return "API Key Not Valid" errors.
+                                  The "World Awareness Update" feature (Long-press FAB) requires a Global API Key. 
+                                  Please set a valid Gemini key here and click Save to fix this module.
                                 </p>
                               </div>
                             </div>
