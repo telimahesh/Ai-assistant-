@@ -243,6 +243,13 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyTab, setHistoryTab] = useState<"current" | "sessions">("current");
+  const [systemPermissions, setSystemPermissions] = useState({
+    microphone: "prompt" as PermissionState,
+    camera: "prompt" as PermissionState,
+    notifications: "prompt" as PermissionState,
+    location: "prompt" as PermissionState
+  });
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   
   const sessionRef = useRef<LiveSession | null>(null);
   const volumeIntervalRef = useRef<number | null>(null);
@@ -252,6 +259,10 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const screenCaptureIntervalRef = useRef<number | null>(null);
+  
+  // Long-press handle
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   const handleAdminClick = () => {
     setAdminClickCount(prev => prev + 1);
@@ -281,6 +292,33 @@ export default function App() {
       setUser(u);
       
       if (u) {
+        // Request system permissions awareness
+        const checkPermissions = async () => {
+          try {
+            const [mic, cam, notify, geo] = await Promise.all([
+              navigator.permissions.query({ name: 'microphone' as any }),
+              navigator.permissions.query({ name: 'camera' as any }),
+              navigator.permissions.query({ name: 'notifications' as any }),
+              navigator.permissions.query({ name: 'geolocation' as any })
+            ]);
+
+            setSystemPermissions({
+              microphone: mic.state,
+              camera: cam.state,
+              notifications: notify.state,
+              location: geo.state
+            });
+
+            mic.onchange = () => setSystemPermissions(p => ({ ...p, microphone: mic.state }));
+            cam.onchange = () => setSystemPermissions(p => ({ ...p, camera: cam.state }));
+            notify.onchange = () => setSystemPermissions(p => ({ ...p, notifications: notify.state }));
+            geo.onchange = () => setSystemPermissions(p => ({ ...p, location: geo.state }));
+          } catch (e) {
+            console.warn("Permissions API restriction in this environment");
+          }
+        };
+        checkPermissions();
+
         // Check if custom user exists
         const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", u.uid)));
         if (!userDoc.empty) {
@@ -318,7 +356,47 @@ export default function App() {
     };
   }, []);
 
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const handleWorldUpdate = async () => {
+    const key = geminiKey || globalGeminiKey;
+    if (!key) {
+      setErrorMessage("GLOBAL API KEY MISSING: PLEASE CONFIGURE IN CORE SETTINGS");
+      return;
+    }
+
+    setErrorMessage("WORLD AWARENESS PROTOCOL INITIATED: SYNCING GLOBAL DATA...");
+    try {
+      const response = await fetch("/api/world-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key })
+      });
+      const data = await response.json();
+      if (data.text) {
+        setErrorMessage("ZOYA WORLD UPDATE: " + data.text.substring(0, 120) + "...");
+      } else if (data.error?.toLowerCase().includes("leaked")) {
+        setErrorMessage("SECURITY ALERT: This API key is LEAKED. Please update it in Admin Panel.");
+      }
+    } catch (e) {
+      setErrorMessage("World sync failed. Core processing error.");
+    }
+  };
+
+  const handleLongPressStart = () => {
+    if (state !== "disconnected") return;
+    setIsLongPressing(true);
+    longPressTimerRef.current = setTimeout(() => {
+      handleWorldUpdate();
+      setIsLongPressing(false);
+    }, 1500);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -378,12 +456,22 @@ export default function App() {
         const userDoc = querySnapshot.docs[0];
         const userData = userDoc.data();
         
-        // Link current anonymous UID to this user doc if not already linked
-        if (userData.uid !== uid) {
-          await updateDoc(doc(db, "users", userDoc.id), { uid: uid });
+        // Ensure user document ID matches the UID for security rule compatibility (especially for admins)
+        if (userDoc.id !== uid) {
+          // 1. Create new doc with UID as ID
+          await setDoc(doc(db, "users", uid), {
+            ...userData,
+            uid: uid,
+            updatedAt: serverTimestamp()
+          });
+          // 2. Delete the old doc with random ID
+          await deleteDoc(doc(db, "users", userDoc.id));
+          
+          setCustomUser({ ...userData, uid: uid, docId: uid });
+        } else {
+          setCustomUser({ ...userData, uid: uid, docId: userDoc.id });
         }
         
-        setCustomUser({ ...userData, uid: uid, docId: userDoc.id });
         setIsAdmin(userData.role === "admin");
         if (userData.role === "admin") {
           setShowAdmin(true);
@@ -603,6 +691,8 @@ export default function App() {
           setErrorMessage("Invalid API Key: Please update the Global Gemini API Key in the Admin Panel.");
         } else if (errorMsg.toLowerCase().includes("leaked")) {
           setErrorMessage("SECURITY ALERT: This API key was reported as LEAKED and disabled by Google. Please generate a NEW key at aistudio.google.com and update it in the Admin Config.");
+        } else if (errorMsg.toLowerCase().includes("notallowederror")) {
+          setErrorMessage("Mic Access Denied. Please enable Microphone in System Settings.");
         } else {
           setErrorMessage("Zoya encountered an error: " + errorMsg);
         }
@@ -954,23 +1044,44 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <div className="absolute top-8 left-8 right-8 flex justify-between items-start z-10">
-        <div onClick={handleAdminClick} className="cursor-pointer select-none">
+      <div className="absolute top-0 inset-x-0 h-20 px-4 sm:px-8 flex items-center justify-between z-30 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex flex-col items-start gap-1">
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl font-black tracking-tighter uppercase italic"
+            onClick={handleAdminClick}
+            className="text-2xl sm:text-4xl font-black tracking-tighter uppercase italic cursor-pointer select-none"
           >
             Zoya
           </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
-            transition={{ delay: 0.2 }}
-            className="text-xs font-mono uppercase tracking-[0.2em] mt-1"
-          >
-            Voice-to-Voice AI Assistant
-          </motion.p>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-full">
+              <span className="text-[8px] font-mono uppercase text-zinc-500">System Access:</span>
+              <div className="flex items-center gap-1">
+                {[
+                  { name: 'Mic', state: systemPermissions.microphone },
+                  { name: 'Cam', state: systemPermissions.camera },
+                  { name: 'Loc', state: systemPermissions.location }
+                ].map(p => (
+                  <div key={p.name} className="flex items-center gap-0.5 group relative" title={`${p.name}: ${p.state}`}>
+                    <div className={cn(
+                      "w-1 h-1 rounded-full",
+                      p.state === 'granted' ? "bg-green-500" : p.state === 'denied' ? "bg-red-500" : "bg-yellow-500"
+                    )} />
+                    <span className="text-[7px] font-mono uppercase text-zinc-600 group-hover:text-zinc-400 transition-colors">{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              transition={{ delay: 0.2 }}
+              className="text-[8px] font-mono uppercase tracking-[0.2em] hidden sm:block"
+            >
+              Voice-to-Voice AI Assistant
+            </motion.p>
+          </div>
         </div>
         
         <div className="flex gap-4 items-center">
@@ -1194,7 +1305,15 @@ export default function App() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={toggleSession}
+                onMouseDown={handleLongPressStart}
+                onMouseUp={handleLongPressEnd}
+                onMouseLeave={handleLongPressEnd}
+                onTouchStart={handleLongPressStart}
+                onTouchEnd={handleLongPressEnd}
+                onClick={(e) => {
+                  // Only click if it wasn't a long press
+                  if (!isLongPressing) toggleSession();
+                }}
                 disabled={state === "connecting"}
                 className={cn(
                   "relative w-40 h-40 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl",
@@ -1204,6 +1323,14 @@ export default function App() {
                   state === "paused" ? "bg-zinc-700 border border-zinc-600" : "bg-cyan-600 shadow-cyan-500/50"
                 )}
               >
+                {isLongPressing && (
+                  <motion.div 
+                    initial={{ scale: 1 }}
+                    animate={{ scale: 1.5, opacity: 0 }}
+                    transition={{ duration: 1.5 }}
+                    className="absolute inset-0 bg-yellow-400/20 rounded-full"
+                  />
+                )}
                 {state === "disconnected" ? (
                   <Power className="w-12 h-12 text-zinc-400" />
                 ) : state === "connecting" ? (

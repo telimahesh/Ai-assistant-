@@ -49,8 +49,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "telimahesh36@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isValidUser(data) {
@@ -100,6 +101,11 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /config/global {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
 
     match /messages/{messageId} {
       allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;

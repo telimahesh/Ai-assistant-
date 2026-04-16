@@ -1,5 +1,22 @@
 {
   "entities": {
+    "GlobalConfig": {
+      "title": "GlobalConfig",
+      "description": "System-wide configuration settings.",
+      "type": "object",
+      "properties": {
+        "geminiApiKey": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string"
+        }
+      }
+    },
     "Message": {
       "title": "Message",
       "description": "A single message in a conversation with Zoya.",
@@ -138,6 +155,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles and settings."
+    },
+    "/config/global": {
+      "schema": "GlobalConfig",
+      "description": "System-wide global configuration."
     }
   }
 }

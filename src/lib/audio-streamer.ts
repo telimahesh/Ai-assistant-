@@ -2,7 +2,8 @@
  * Handles audio input (microphone) and output (speaker) for the Gemini Live API.
  */
 export class AudioStreamer {
-  private audioContext: AudioContext | null = null;
+  private recordingContext: AudioContext | null = null;
+  private playbackContext: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
@@ -21,41 +22,53 @@ export class AudioStreamer {
       throw new Error("Your browser does not support microphone access. Please use a modern browser like Chrome.");
     }
 
-    this.audioContext = new AudioContext({ sampleRate: 16000 });
-    if (this.audioContext.state === "suspended") {
-      await this.audioContext.resume();
+    // Initialize Recording Context (16kHz for Gemini)
+    if (!this.recordingContext) {
+      this.recordingContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+    }
+    
+    if (this.recordingContext.state === "suspended") {
+      await this.recordingContext.resume();
     }
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Resume context again after stream is acquired, some browsers need this
-      if (this.audioContext.state === "suspended") {
-        await this.audioContext.resume();
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000
+        } 
+      });
+      
+      if (this.recordingContext.state === "suspended") {
+        await this.recordingContext.resume();
       }
     } catch (err: any) {
-      if (this.audioContext) {
-        await this.audioContext.close();
-        this.audioContext = null;
-      }
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        throw new Error("Microphone permission denied. Please allow microphone access in your app settings.");
+        throw new Error("Microphone permission denied. Please allow microphone access in Zoya's settings.");
       }
       throw err;
     }
 
-    if (!this.audioContext) return; // Handle case where stop() was called during getUserMedia
+    if (!this.recordingContext) return;
 
-    this.source = this.audioContext.createMediaStreamSource(this.stream);
-    this.analyzer = this.audioContext.createAnalyser();
-    this.analyzer.fftSize = 256;
+    this.source = this.recordingContext.createMediaStreamSource(this.stream);
+    this.analyzer = this.recordingContext.createAnalyser();
+    this.analyzer.fftSize = 512;
+    this.analyzer.smoothingTimeConstant = 0.4;
 
-    // ScriptProcessor is deprecated but often easier for raw PCM handling in simple apps
-    // Alternatively, use AudioWorklet for better performance
-    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    // Filter to clean up microphone input
+    const micFilter = this.recordingContext.createBiquadFilter();
+    micFilter.type = "lowpass";
+    micFilter.frequency.value = 7500; // Voice rarely goes above this for 16kHz sampling
 
-    this.source.connect(this.analyzer);
-    this.source.connect(this.processor);
-    this.processor.connect(this.audioContext.destination);
+    this.processor = this.recordingContext.createScriptProcessor(4096, 1, 1);
+
+    this.source.connect(micFilter);
+    micFilter.connect(this.analyzer);
+    micFilter.connect(this.processor);
+    this.processor.connect(this.recordingContext.destination);
 
     this.processor.onaudioprocess = (e) => {
       if (!this.isRecording) return;
@@ -67,10 +80,11 @@ export class AudioStreamer {
 
     this.isRecording = true;
 
-    // Initialize playback context during user gesture
+    // Initialize Playback Context (24kHz for Gemini Output)
     if (!this.playbackContext) {
-      this.playbackContext = new AudioContext({ sampleRate: 24000 });
+      this.playbackContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       this.nextStartTime = this.playbackContext.currentTime;
+      this.initPlaybackChain();
     } else if (this.playbackContext.state === "suspended") {
       await this.playbackContext.resume();
     }
@@ -79,10 +93,12 @@ export class AudioStreamer {
   stop() {
     this.isRecording = false;
     this.stream?.getTracks().forEach((track) => track.stop());
+    this.stream = null;
     this.processor?.disconnect();
     this.source?.disconnect();
-    this.audioContext?.close();
-    this.audioContext = null;
+    // Suspend instead of close to allow quick restart
+    this.recordingContext?.suspend();
+    this.playbackContext?.suspend();
   }
 
   getVolume() {
@@ -113,55 +129,74 @@ export class AudioStreamer {
   }
 
   /**
-   * Plays back 24kHz PCM16 audio chunks with subtle AI-like effects.
+   * Plays back 24kHz PCM16 audio chunks with high-quality AI-like effects.
    */
-  private playbackContext: AudioContext | null = null;
   private nextStartTime = 0;
   private reverbNode: ConvolverNode | null = null;
-  private filterNode: BiquadFilterNode | null = null;
+  private lowPassFilter: BiquadFilterNode | null = null;
+  private enhancerFilter: BiquadFilterNode | null = null;
   private compressorNode: DynamicsCompressorNode | null = null;
+  private limiterNode: DynamicsCompressorNode | null = null;
   private wetGain: GainNode | null = null;
   private dryGain: GainNode | null = null;
 
   private initPlaybackChain() {
     if (!this.playbackContext) return;
 
-    // 1. High-pass filter for a cleaner, slightly more "digital" feel
-    this.filterNode = this.playbackContext.createBiquadFilter();
-    this.filterNode.type = "highpass";
-    this.filterNode.frequency.value = 150; // Cut off muddy lows
+    // 1. Low-pass to smooth out digital artifacts
+    this.lowPassFilter = this.playbackContext.createBiquadFilter();
+    this.lowPassFilter.type = "lowpass";
+    this.lowPassFilter.frequency.value = 11000;
 
-    // 2. Compressor for consistent volume
+    // 2. Presence Enhancer (AI clarity)
+    this.enhancerFilter = this.playbackContext.createBiquadFilter();
+    this.enhancerFilter.type = "peaking";
+    this.enhancerFilter.frequency.value = 3500;
+    this.enhancerFilter.Q.value = 1.2;
+    this.enhancerFilter.gain.value = 4;
+
+    // 3. Main Compressor for radio-like density
     this.compressorNode = this.playbackContext.createDynamicsCompressor();
-    this.compressorNode.threshold.setValueAtTime(-24, this.playbackContext.currentTime);
-    this.compressorNode.knee.setValueAtTime(30, this.playbackContext.currentTime);
-    this.compressorNode.ratio.setValueAtTime(12, this.playbackContext.currentTime);
-    this.compressorNode.attack.setValueAtTime(0.003, this.playbackContext.currentTime);
-    this.compressorNode.release.setValueAtTime(0.25, this.playbackContext.currentTime);
+    this.compressorNode.threshold.setValueAtTime(-20, this.playbackContext.currentTime);
+    this.compressorNode.knee.setValueAtTime(12, this.playbackContext.currentTime);
+    this.compressorNode.ratio.setValueAtTime(4, this.playbackContext.currentTime);
+    this.compressorNode.attack.setValueAtTime(0.005, this.playbackContext.currentTime);
+    this.compressorNode.release.setValueAtTime(0.2, this.playbackContext.currentTime);
 
-    // 3. Reverb for space
+    // 4. Soft Limiter to prevent any popping
+    this.limiterNode = this.playbackContext.createDynamicsCompressor();
+    this.limiterNode.threshold.setValueAtTime(-1, this.playbackContext.currentTime);
+    this.limiterNode.knee.setValueAtTime(0, this.playbackContext.currentTime);
+    this.limiterNode.ratio.setValueAtTime(20, this.playbackContext.currentTime);
+    this.limiterNode.attack.setValueAtTime(0.001, this.playbackContext.currentTime);
+    this.limiterNode.release.setValueAtTime(0.1, this.playbackContext.currentTime);
+
+    // 5. Reverb for space
     this.reverbNode = this.playbackContext.createConvolver();
-    this.reverbNode.buffer = this.createImpulseResponse(1.5, 4);
+    this.reverbNode.buffer = this.createImpulseResponse(0.8, 3.5); // Slightly tighter reverb
 
-    // 4. Gains for mixing
+    // 6. Gains for mixing
     this.dryGain = this.playbackContext.createGain();
     this.wetGain = this.playbackContext.createGain();
     
-    this.dryGain.gain.value = 0.8;
-    this.wetGain.gain.value = 0.15; // Subtle reverb
+    this.dryGain.gain.value = 1.0;
+    this.wetGain.gain.value = 0.12; // Very subtle space
 
-    // Connect the chain
-    // source -> filter -> compressor -> dryGain -> destination
-    // source -> filter -> compressor -> reverb -> wetGain -> destination
+    // Chain: 
+    // source -> lowPass -> enhancer -> compressor -> dryGain -> limiter -> destination
+    //                                              -> reverb -> wetGain -> limiter -> destination
     
-    this.filterNode.connect(this.compressorNode);
+    this.lowPassFilter.connect(this.enhancerFilter);
+    this.enhancerFilter.connect(this.compressorNode);
     
     this.compressorNode.connect(this.dryGain);
-    this.dryGain.connect(this.playbackContext.destination);
+    this.dryGain.connect(this.limiterNode);
     
     this.compressorNode.connect(this.reverbNode);
     this.reverbNode.connect(this.wetGain);
-    this.wetGain.connect(this.playbackContext.destination);
+    this.wetGain.connect(this.limiterNode);
+    
+    this.limiterNode.connect(this.playbackContext.destination);
   }
 
   private createImpulseResponse(duration: number, decay: number): AudioBuffer {
@@ -174,6 +209,7 @@ export class AudioStreamer {
     for (let i = 0; i < length; i++) {
       const n = i / length;
       const envelope = Math.pow(1 - n, decay);
+      // Stereo de-correlation
       left[i] = (Math.random() * 2 - 1) * envelope;
       right[i] = (Math.random() * 2 - 1) * envelope;
     }
@@ -182,9 +218,13 @@ export class AudioStreamer {
 
   playChunk(base64Data: string) {
     if (!this.playbackContext) {
-      this.playbackContext = new AudioContext({ sampleRate: 24000 });
+      this.playbackContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       this.nextStartTime = this.playbackContext.currentTime;
       this.initPlaybackChain();
+    }
+
+    if (this.playbackContext.state === "suspended") {
+      this.playbackContext.resume();
     }
 
     const binary = window.atob(base64Data);
@@ -204,9 +244,8 @@ export class AudioStreamer {
     const source = this.playbackContext.createBufferSource();
     source.buffer = buffer;
     
-    // Connect to the start of our effect chain
-    if (this.filterNode) {
-      source.connect(this.filterNode);
+    if (this.lowPassFilter) {
+      source.connect(this.lowPassFilter);
     } else {
       source.connect(this.playbackContext.destination);
     }
@@ -217,13 +256,7 @@ export class AudioStreamer {
   }
 
   stopPlayback() {
-    this.playbackContext?.close();
-    this.playbackContext = null;
+    this.playbackContext?.suspend();
     this.nextStartTime = 0;
-    this.reverbNode = null;
-    this.filterNode = null;
-    this.compressorNode = null;
-    this.wetGain = null;
-    this.dryGain = null;
   }
 }

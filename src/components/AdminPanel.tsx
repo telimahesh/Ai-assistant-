@@ -69,6 +69,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [worldUpdate, setWorldUpdate] = useState<string | null>(null);
   const [isFetchingWorld, setIsFetchingWorld] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   // Global Config State
   const [globalGeminiKey, setGlobalGeminiKey] = useState("");
@@ -76,12 +77,25 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
 
   useEffect(() => {
     // Listen to global config in real-time
-    const unsubscribe = onSnapshot(doc(db, "config", "global"), (doc) => {
+    const unsubscribeConfig = onSnapshot(doc(db, "config", "global"), (doc) => {
       if (doc.exists()) {
         setGlobalGeminiKey(doc.data().geminiApiKey || "");
       }
     });
-    return () => unsubscribe();
+
+    // Listen to all users in real-time
+    const unsubscribeUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+      const usersList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAllUsers(usersList.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    });
+
+    return () => {
+      unsubscribeConfig();
+      unsubscribeUsers();
+    };
   }, []);
 
   const handleSaveGlobalConfig = async () => {
@@ -526,9 +540,49 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                       </form>
                     </div>
 
-                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl">
-                      <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic mb-4">Active User Directory</h3>
-                      <p className="text-xs text-zinc-500 italic">User list monitoring is currently restricted to core system logs.</p>
+                    <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-3xl space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-mono uppercase tracking-widest text-zinc-400 italic">Active User Directory</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-cyan-400">{allUsers.length}</span>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Found</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
+                        {allUsers.length === 0 ? (
+                          <div className="text-center py-12 bg-black/20 rounded-2xl border border-white/5">
+                            <p className="text-xs text-zinc-500 italic">No users found in directory.</p>
+                          </div>
+                        ) : (
+                          allUsers.map((u) => (
+                            <div key={u.id} className="p-4 bg-black/40 rounded-2xl border border-white/5 flex items-center justify-between group">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-white/5">
+                                  <Users className="w-5 h-5 text-zinc-500" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-zinc-200">{u.id}</span>
+                                  <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
+                                    Role: {u.role} // Pass: {u.password?.substring(0, 1)}***
+                                  </span>
+                                </div>
+                                {u.role === "admin" && (
+                                  <div className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded-full">
+                                    <span className="text-[8px] font-mono font-bold text-red-500 uppercase tracking-widest">Admin</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[9px] font-mono text-zinc-700 block uppercase">Created</span>
+                                <span className="text-[10px] font-mono text-zinc-500">
+                                  {u.createdAt?.toDate?.() ? u.createdAt.toDate().toLocaleDateString() : 'Pending'}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
