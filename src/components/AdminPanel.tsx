@@ -640,13 +640,42 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                           )}
                         </div>
 
-                        <Button 
-                          onClick={handleSaveGlobalConfig}
-                          disabled={isSavingConfig}
-                          className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
-                        >
-                          {isSavingConfig ? "Updating Core..." : "Save Global Configuration"}
-                        </Button>
+                        <div className="flex flex-col gap-3">
+                          <Button 
+                            onClick={handleSaveGlobalConfig}
+                            disabled={isSavingConfig}
+                            className="w-full bg-pink-600 hover:bg-pink-500 text-white rounded-xl py-6 font-bold uppercase tracking-widest text-xs shadow-lg shadow-pink-500/20"
+                          >
+                            {isSavingConfig ? "Updating Core..." : "Save Global Configuration"}
+                          </Button>
+                          
+                          {globalGeminiKey && (
+                            <Button 
+                              onClick={async () => {
+                                if (confirm("Are you sure you want to reset to system default? This will delete the current Global key.")) {
+                                  setIsSavingConfig(true);
+                                  try {
+                                    await setDoc(doc(db, "config", "global"), {
+                                      geminiApiKey: "",
+                                      updatedAt: serverTimestamp(),
+                                      updatedBy: user?.id || "admin"
+                                    }, { merge: true });
+                                    setGlobalGeminiKey("");
+                                    alert("Reset to system default successfully.");
+                                  } catch (error: any) {
+                                    alert("Error: " + error.message);
+                                  } finally {
+                                    setIsSavingConfig(false);
+                                  }
+                                }
+                              }}
+                              variant="ghost"
+                              className="w-full text-zinc-500 hover:text-white text-[10px] uppercase tracking-widest font-mono"
+                            >
+                              Reset to System Default
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
