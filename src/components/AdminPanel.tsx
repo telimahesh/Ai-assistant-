@@ -133,6 +133,8 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
           err = "SECURITY ALERT: This API key is LEAKED. You MUST generate a NEW key at aistudio.google.com and save it in the Config tab below.";
         } else if (err.toLowerCase().includes("quota") || err.toLowerCase().includes("429")) {
           err = "QUOTA EXCEEDED: The system's API key has hit its limit. Please switch to a Paid API key in Config for unlimited scans.";
+        } else if (err.toLowerCase().includes("credentials") || err.toLowerCase().includes("auth") || err.toLowerCase().includes("aiza")) {
+          err = "AUTHENTICATION ERROR: The key used is invalid or malformed. Ensure it starts with 'AIza'.";
         }
         setWorldUpdate("PROTOCOL_ERROR: " + err);
       }

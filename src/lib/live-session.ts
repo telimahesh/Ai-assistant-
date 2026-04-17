@@ -54,6 +54,11 @@ export class LiveSession {
         console.error("No API key found in any source");
         throw new Error("GEMINI_API_KEY is not set. Please provide an API key in the app settings or AI Studio settings.");
       }
+
+      // Validate key format to catch OAuth tokens mistakenly used
+      if (!finalApiKey.startsWith("AIza")) {
+        throw new Error("INVALID_KEY_FORMAT: Gemini API keys MUST start with 'AIza'. Your key appears to be an OAuth token or malformed. Please go to https://aistudio.google.com/app/apikey to get a valid Gemini API Key.");
+      }
       
       console.log("Initializing GoogleGenAI with key (first 4 chars):", finalApiKey.substring(0, 4));
       this.ai = new GoogleGenAI({ apiKey: finalApiKey });

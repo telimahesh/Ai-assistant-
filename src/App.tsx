@@ -689,6 +689,8 @@ export default function App() {
         
         if (errorMsg.includes("429") || errorMsg.toLowerCase().includes("quota")) {
           setErrorMessage("QUOTA EXCEEDED: The system's current Gemini API Key has hit its limit. Please wait, or click 'Set My API Key' to use your own free key (1,500 requests/day).");
+        } else if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("invalid authentication credentials") || errorMsg.includes("INVALID_KEY_FORMAT")) {
+          setErrorMessage("AUTHENTICATION ERROR: Your Gemini API Key is invalid. Ensure your key starts with 'AIza'. If you used a different token, it will not work. Change it in Admin > Config.");
         } else if (errorMsg.includes("Network error") || errorMsg.includes("WebSocket")) {
           setErrorMessage("Network error: WebSocket connection failed. This usually happens when the API key is restricted or quota is hit.");
         } else if (errorMsg.includes("API key not valid")) {

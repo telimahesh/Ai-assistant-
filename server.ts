@@ -47,6 +47,12 @@ async function startServer() {
         });
       }
 
+      if (!apiKey.startsWith("AIza")) {
+        return res.status(400).json({
+          error: "INVALID KEY FORMAT: Your Gemini API Key MUST start with 'AIza'. The current key is invalid or an OAuth token. Please update it in the Admin Config."
+        });
+      }
+
       const ai = new GoogleGenAI({ apiKey });
       const prompt = "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.";
       
@@ -65,8 +71,8 @@ async function startServer() {
         errorMsg = "CRITICAL SECURITY ERROR: This API Key has been leaked and disabled by Google. You MUST generate a NEW API Key at https://aistudio.google.com/app/apikey and update it in the Admin Panel.";
       } else if (errorMsg.includes("429") || errorMsg.includes("quota")) {
         errorMsg = "QUOTA EXCEEDED: The system's current Gemini API Key has hit its limit or has no quota. Please wait, check your billing status at ai.google.dev, or log in as Admin to configure a Paid API key.";
-      } else if (errorMsg.includes("403") || errorMsg.includes("permission")) {
-        errorMsg = "PERMISSION DENIED: The current API key does not have permission to access this model. Please check your API key settings.";
+      } else if (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("permission") || errorMsg.includes("credentials")) {
+        errorMsg = "AUTHENTICATION ERROR: The current API key is invalid or does not have permission. Ensure it starts with 'AIza'. Update it in the Admin Panel.";
       } else {
         // Try to parse if it's a JSON stringified error from the SDK
         try {
