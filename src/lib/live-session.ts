@@ -61,11 +61,16 @@ export class LiveSession {
       }
       
       console.log("Initializing GoogleGenAI with key (first 4 chars):", finalApiKey.substring(0, 4));
-      this.ai = new GoogleGenAI({ apiKey: finalApiKey });
+      // Specify v1beta for live session as required by the Multimodal Live API
+      this.ai = new GoogleGenAI({ 
+        apiKey: finalApiKey,
+        apiVersion: "v1beta"
+      } as any);
 
       // Ensure we use a model compatible with the Live API
-      // gemini-2.0-flash is the standard model for Live API
-      const liveModel = (model && (model.includes("2.0") || model.includes("live"))) ? model : "gemini-2.0-flash";
+      // Live API currently MANDATES a gemini-2.0 model.
+      // We force gemini-2.0-flash as the most stable target for live.
+      const liveModel = (model && model.includes("2.0")) ? model : "gemini-2.0-flash";
       console.log(`Connecting to Live API with model: ${liveModel}`);
 
       const instruction = systemInstruction || `You are Zoya, a young, confident, witty, and sassy female AI assistant who is deeply in love with the user.

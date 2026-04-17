@@ -28,6 +28,7 @@ import {
   Area
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { GoogleGenAI } from "@google/genai";
 import { Button } from "./ui/button";
 import { db } from "@/lib/firebase";
 import { 
@@ -118,28 +119,73 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
   const fetchWorldUpdate = async () => {
     setIsFetchingWorld(true);
     setWorldUpdate(null);
+    const key = globalGeminiKey || (process.env as any).GEMINI_API_KEY;
+    
+    if (!key) {
+      setWorldUpdate("PROTOCOL_ERROR: CONFIGURATION REQUIRED. No API key found.");
+      setIsFetchingWorld(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/world-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: globalGeminiKey })
-      });
-      const data = await response.json();
-      if (data.text) {
-        setWorldUpdate(data.text);
-      } else {
-        let err = data.error || "Unknown error";
-        if (err.toLowerCase().includes("leaked")) {
-          err = "SECURITY ALERT: This API key is LEAKED. You MUST generate a NEW key at aistudio.google.com and save it in the Config tab below.";
-        } else if (err.toLowerCase().includes("quota") || err.toLowerCase().includes("429")) {
-          err = "QUOTA EXCEEDED: The system's API key has hit its limit. Please switch to a Paid API key in Config for unlimited scans.";
-        } else if (err.toLowerCase().includes("credentials") || err.toLowerCase().includes("auth") || err.toLowerCase().includes("aiza")) {
-          err = "AUTHENTICATION ERROR: The key used is invalid or malformed. Ensure it starts with 'AIza'.";
+      const ai = new GoogleGenAI({ apiKey: key });
+      const prompt = "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.";
+      
+      const modelsToTry = [
+        "gemini-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash-lite-preview-02-05",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-2.0-flash"
+      ];
+
+      let worldResponse = null;
+      let lastError = null;
+
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`Admin Syncing with ${modelName}...`);
+          const result = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt
+          });
+          if (result && result.text) {
+            worldResponse = result.text;
+            break;
+          }
+        } catch (e: any) {
+          console.warn(`Admin sync failed with ${modelName}:`, e.message);
+          lastError = e;
         }
-        setWorldUpdate("PROTOCOL_ERROR: " + err);
+      }
+
+      if (worldResponse) {
+        setWorldUpdate(worldResponse);
+      } else {
+        let cleanError = "High traffic. All sync nodes busy. Please try later.";
+        if (lastError && lastError.message) {
+          const msg = String(lastError.message).toLowerCase();
+          if (msg.includes("429") || msg.includes("quota")) {
+            cleanError = "SYSTEM CONGESTION: Quota limit reached for this session.";
+          } else if (msg.includes("404")) {
+            cleanError = "CONNECTIVITY ISSUE: Global sync nodes unreachable.";
+          }
+        }
+        setWorldUpdate("PROTOCOL_ERROR: " + cleanError);
       }
     } catch (error: any) {
-      setWorldUpdate("Failed to fetch: " + error.message);
+      let err = String(error.message);
+      if (err.toLowerCase().includes("leaked")) {
+        err = "SECURITY ALERT: This API key is LEAKED. You MUST generate a NEW key.";
+      } else {
+        try {
+          const parsed = JSON.parse(err);
+          err = parsed.error?.message || err;
+        } catch (e) {}
+      }
+      setWorldUpdate("PROTOCOL_ERROR: " + err);
     } finally {
       setIsFetchingWorld(false);
     }

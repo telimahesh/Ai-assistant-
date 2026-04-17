@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { GoogleGenAI } from "@google/genai";
 import { 
   Mic, 
   MicOff, 
@@ -187,15 +188,14 @@ const PERSONALITY_TEMPLATES = [
   }
 ];
 
-// Note: Live sessions (Zoya's voice) require models with "-live-" in their name.
-// Other models will be used for text-only tasks if implemented, or automatically 
-// upgraded to the live-compatible version for voice sessions.
+// NOTE: Models were updated to modern versions as per Gemini API safety guidelines.
+// 1.5-flash and 1.5-pro are now prohibited.
 const GEMINI_MODELS = [
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite-preview",
+  "gemini-3.1-pro-preview",
   "gemini-2.0-flash",
-  "gemini-2.0-flash-lite-preview-02-05",
-  "gemini-2.0-pro-exp-02-05",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro"
+  "gemini-flash-latest"
 ];
 
 const OPENAI_MODELS = [
@@ -250,6 +250,8 @@ export default function App() {
     location: "prompt" as PermissionState
   });
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [worldUpdate, setWorldUpdate] = useState<string | null>(null);
+  const [showStatus, setShowStatus] = useState(false);
   
   const sessionRef = useRef<LiveSession | null>(null);
   const volumeIntervalRef = useRef<number | null>(null);
@@ -357,27 +359,79 @@ export default function App() {
   }, []);
 
   const handleWorldUpdate = async () => {
-    const key = geminiKey || globalGeminiKey;
+    const key = geminiKey || globalGeminiKey || (process.env as any).GEMINI_API_KEY;
     if (!key) {
       setErrorMessage("GLOBAL API KEY MISSING: PLEASE CONFIGURE IN CORE SETTINGS");
       return;
     }
 
     setErrorMessage("WORLD AWARENESS PROTOCOL INITIATED: SYNCING GLOBAL DATA...");
+    setShowStatus(true);
+    
     try {
-      const response = await fetch("/api/world-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key })
-      });
-      const data = await response.json();
-      if (data.text) {
-        setErrorMessage("ZOYA WORLD UPDATE: " + data.text.substring(0, 120) + "...");
-      } else if (data.error) {
-        setErrorMessage(data.error);
+      const ai = new GoogleGenAI({ apiKey: key });
+      const prompt = "Give me a brief summary of what is happening in the world today. Focus on major global events, technology, and science. Keep it concise.";
+      
+      const modelsToTry = [
+        "gemini-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash-lite-preview-02-05",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-2.0-flash"
+      ];
+
+      let worldResponse = null;
+      let lastError = null;
+
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`Syncing with ${modelName}...`);
+          const result = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt
+          });
+          if (result && result.text) {
+            worldResponse = result.text;
+            console.log(`Successfully synced with ${modelName}`);
+            break;
+          }
+        } catch (e: any) {
+          console.warn(`${modelName} sync failed:`, e.message);
+          lastError = e;
+          // Continue to next model
+        }
       }
-    } catch (e) {
-      setErrorMessage("World sync failed. Core processing error.");
+
+      if (worldResponse) {
+        setWorldUpdate(worldResponse);
+        setErrorMessage("ZOYA WORLD UPDATE: " + worldResponse.substring(0, 120) + "...");
+        setTimeout(() => setShowStatus(false), 5000);
+      } else {
+        // If all fell through, show a clean error message
+        let cleanError = "All sync protocols failed due to high traffic.";
+        if (lastError && lastError.message) {
+          const msg = String(lastError.message).toLowerCase();
+          if (msg.includes("429") || msg.includes("quota")) {
+            cleanError = "SYSTEM CONGESTION: Quota limit reached for this session. Please try again in 10-15 seconds.";
+          } else if (msg.includes("404")) {
+            cleanError = "CONNECTIVITY ISSUE: Global sync nodes are currently unreachable.";
+          } else {
+            // Try to extract a clean message from JSON
+            try {
+              const parsed = JSON.parse(lastError.message);
+              cleanError = parsed.error?.message || "Protocol Error (" + (parsed.error?.code || "v3") + ")";
+            } catch (err) {
+              cleanError = "Sync Protocol Failure: " + String(lastError.message).substring(0, 100);
+            }
+          }
+        }
+        setErrorMessage("SYNC_ERROR: " + cleanError);
+      }
+    } catch (error: any) {
+      console.error("World Sync Critical Error:", error);
+      setErrorMessage("SYNC_ERROR: Critical failure in sync protocol.");
     }
   };
 
