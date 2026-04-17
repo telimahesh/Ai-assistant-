@@ -8,6 +8,10 @@ import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
+// Global cache for World Update to prevent quota exhaustion
+let cachedWorldUpdate: { text: string; timestamp: number } | null = null;
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -19,6 +23,13 @@ async function startServer() {
 
   // API route for World Update (Native API Support)
   app.post("/api/world-update", async (req, res) => {
+    // Check cache first
+    const now = Date.now();
+    if (cachedWorldUpdate && (now - cachedWorldUpdate.timestamp < CACHE_DURATION)) {
+      console.log("Serving World Update from backend cache...");
+      return res.json({ text: cachedWorldUpdate.text });
+    }
+
     try {
       // Priority: 1. System Key, 2. Global Key from config
       let apiKey = process.env.GEMINI_API_KEY;
@@ -84,6 +95,8 @@ async function startServer() {
       }
 
       if (responseText) {
+        // Update cache
+        cachedWorldUpdate = { text: responseText, timestamp: Date.now() };
         res.json({ text: responseText });
       } else {
         const quotaError = lastError?.message?.includes("429") || lastError?.message?.includes("quota");

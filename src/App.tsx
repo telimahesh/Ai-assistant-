@@ -253,6 +253,7 @@ export default function App() {
   const [worldUpdate, setWorldUpdate] = useState<string | null>(null);
   const [showStatus, setShowStatus] = useState(false);
   
+  const lastSyncTimeRef = useRef<number>(0);
   const sessionRef = useRef<LiveSession | null>(null);
   const volumeIntervalRef = useRef<number | null>(null);
   const historyEndRef = useRef<HTMLDivElement>(null);
@@ -359,6 +360,15 @@ export default function App() {
   }, []);
 
   const handleWorldUpdate = async () => {
+    // Check cache (30 minutes)
+    const now = Date.now();
+    if (worldUpdate && (now - lastSyncTimeRef.current < 30 * 60 * 1000)) {
+      setErrorMessage("ZOYA WORLD UPDATE (Cached): " + worldUpdate.substring(0, 120) + "...");
+      setShowStatus(true);
+      setTimeout(() => setShowStatus(false), 5000);
+      return;
+    }
+
     const key = geminiKey || globalGeminiKey || (process.env as any).GEMINI_API_KEY;
     if (!key) {
       setErrorMessage("GLOBAL API KEY MISSING: PLEASE CONFIGURE IN CORE SETTINGS");
@@ -405,6 +415,7 @@ export default function App() {
       }
 
       if (worldResponse) {
+        lastSyncTimeRef.current = Date.now();
         setWorldUpdate(worldResponse);
         setErrorMessage("ZOYA WORLD UPDATE: " + worldResponse.substring(0, 120) + "...");
         setTimeout(() => setShowStatus(false), 5000);
