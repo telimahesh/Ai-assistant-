@@ -13,7 +13,8 @@ import {
   Zap,
   RefreshCw,
   Users,
-  UserPlus
+  UserPlus,
+  Sparkles
 } from "lucide-react";
 import { 
   LineChart, 
@@ -605,7 +606,7 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                               type="password"
                               value={globalGeminiKey}
                               onChange={(e) => setGlobalGeminiKey(e.target.value)}
-                              placeholder="Leave blank to use System Free Key"
+                              placeholder="AIza... (Copy the string from AI Studio)"
                               className="flex-1 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-pink-500 outline-none transition-colors"
                             />
                             <a 
@@ -618,8 +619,10 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                               <Sparkles className="w-4 h-4 text-pink-500 group-hover:scale-110 transition-transform" />
                             </a>
                           </div>
-                          <p className="text-[10px] text-zinc-500 italic mt-2 px-1">
-                            This key will be used by all users who haven't set their own personal API key. If left blank, the system's built-in free key will be used.
+                          <p className="text-[10px] text-zinc-500 italic mt-2 px-1 leading-relaxed">
+                            This key will be used by all users who haven't set their own personal API key. 
+                            <strong> Important:</strong> The key MUST start with "AIza". If you hit quota limits, 
+                            please switch to a Paid API key or use a fresh free key from AI Studio.
                           </p>
                           {!globalGeminiKey && (
                             <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3 animate-pulse">

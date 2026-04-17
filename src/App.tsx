@@ -685,14 +685,18 @@ export default function App() {
       },
       (error) => {
         const errorMsg = typeof error === 'string' ? error : (error as any)?.message || "Unknown error";
-        if (errorMsg.includes("Network error") || errorMsg.includes("WebSocket")) {
-          setErrorMessage("Network error: WebSocket connection failed. Try setting a valid Gemini API key in the Admin Panel.");
+        console.error("Live Session Error:", errorMsg);
+        
+        if (errorMsg.includes("429") || errorMsg.toLowerCase().includes("quota")) {
+          setErrorMessage("QUOTA EXCEEDED: The system's current Gemini API Key has hit its limit. Please wait, or click 'Set My API Key' to use your own free key (1,500 requests/day).");
+        } else if (errorMsg.includes("Network error") || errorMsg.includes("WebSocket")) {
+          setErrorMessage("Network error: WebSocket connection failed. This usually happens when the API key is restricted or quota is hit.");
         } else if (errorMsg.includes("API key not valid")) {
-          setErrorMessage("Invalid API Key: Please update the Global Gemini API Key in the Admin Panel.");
+          setErrorMessage("Invalid API Key: The key provided is not valid. Please generate a new one at aistudio.google.com.");
         } else if (errorMsg.toLowerCase().includes("leaked")) {
-          setErrorMessage("SECURITY ALERT: This API key was reported as LEAKED and disabled by Google. Please generate a NEW key at aistudio.google.com and update it in the Admin Config.");
+          setErrorMessage("SECURITY ALERT: This API key was reported as LEAKED and disabled by Google. Please generate a NEW key immediately.");
         } else if (errorMsg.toLowerCase().includes("notallowederror")) {
-          setErrorMessage("Mic Access Denied. Please enable Microphone in System Settings.");
+          setErrorMessage("Mic Access Denied. Please enable Microphone in your browser settings.");
         } else {
           setErrorMessage("Zoya encountered an error: " + errorMsg);
         }
@@ -1166,14 +1170,25 @@ export default function App() {
             <AlertCircle className="w-5 h-5 text-white shrink-0" />
             <div className="flex flex-col gap-2">
               <span className="text-xs font-bold text-white leading-tight">{errorMessage}</span>
-              {errorMessage.includes("Network error") && (
-                <Button 
-                  onClick={handleOpenSelectKey}
-                  variant="outline"
-                  className="h-7 text-[10px] uppercase tracking-widest bg-white/10 border-white/20 text-white hover:bg-white/20"
-                >
-                  Select Paid API Key
-                </Button>
+              {(errorMessage.includes("Network error") || errorMessage.includes("QUOTA") || errorMessage.includes("API key")) && (
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleOpenSelectKey}
+                    variant="outline"
+                    className="h-8 text-[10px] uppercase tracking-widest bg-white/10 border-white/20 text-white hover:bg-white/20 px-3"
+                  >
+                    Set My API Key
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                        window.open("https://aistudio.google.com/app/apikey", "_blank");
+                    }}
+                    variant="ghost"
+                    className="h-8 text-[10px] uppercase tracking-widest text-white/70 hover:text-white"
+                  >
+                    Get Free Key
+                  </Button>
+                </div>
               )}
             </div>
             <button 
