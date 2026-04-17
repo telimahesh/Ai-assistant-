@@ -21,6 +21,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -41,6 +42,8 @@ import org.json.JSONObject;
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
+    private SwipeRefreshLayout swipeRefresh;
+    private View pageLoader;
     private static final int PERMISSION_REQUEST_CODE = 1234;
     private static final String TAG = "ZoyaMain";
     private final OkHttpClient client = new OkHttpClient.Builder()
@@ -59,22 +62,48 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.webview);
+        swipeRefresh = findViewById(R.id.swipe_refresh);
+        pageLoader = findViewById(R.id.page_loader);
+
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setSupportMultipleWindows(true);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+
         // Set a modern User Agent to ensure compatibility with Gemini Live API
         webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36");
 
+        swipeRefresh.setOnRefreshListener(() -> {
+            webView.reload();
+        });
+
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                pageLoader.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageLoader.setVisibility(View.GONE);
+                swipeRefresh.setRefreshing(false);
+            }
+
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 Log.e(TAG, "WebView Error: " + description + " (" + errorCode + ") for URL: " + failingUrl);
+                pageLoader.setVisibility(View.GONE);
+                swipeRefresh.setRefreshing(false);
                 // Show a user-friendly error page or a Toast
                 Toast.makeText(MainActivity.this, "Connection Error: " + description, Toast.LENGTH_LONG).show();
             }

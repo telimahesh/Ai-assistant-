@@ -403,7 +403,7 @@ export default function App() {
       if (!isAuthReady) {
         setShowTroubleshooting(true);
       }
-    }, 8000);
+    }, 15000);
     return () => clearTimeout(timer);
   }, [isAuthReady]);
 
