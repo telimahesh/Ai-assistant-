@@ -234,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
                 .addHeader("User-Agent", userAgent)
                 .addHeader("Cookie", cookies != null ? cookies : "")
                 .addHeader("Referer", baseUrl + "/")
-                .post(RequestBody.create("{}", MediaType.parse("application/json")))
+                .post(RequestBody.create(MediaType.parse("application/json"), "{}"))
                 .build();
 
         client.newCall(request).enqueue(new Callback() {
