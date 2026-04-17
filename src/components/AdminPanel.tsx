@@ -600,13 +600,24 @@ export function AdminPanel({ isOpen, onClose, history, sessionState, user }: Adm
                       <div className="space-y-6">
                         <div className="space-y-2">
                           <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block ml-1">Global Gemini API Key</label>
-                          <input 
-                            type="password"
-                            value={globalGeminiKey}
-                            onChange={(e) => setGlobalGeminiKey(e.target.value)}
-                            placeholder="Leave blank to use System Free Key"
-                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-pink-500 outline-none transition-colors"
-                          />
+                          <div className="flex gap-2">
+                            <input 
+                              type="password"
+                              value={globalGeminiKey}
+                              onChange={(e) => setGlobalGeminiKey(e.target.value)}
+                              placeholder="Leave blank to use System Free Key"
+                              className="flex-1 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-pink-500 outline-none transition-colors"
+                            />
+                            <a 
+                              href="https://aistudio.google.com/app/apikey" 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="px-4 bg-zinc-800 hover:bg-zinc-700 border border-white/10 rounded-2xl flex items-center justify-center transition-colors group"
+                              title="Get Free API Key"
+                            >
+                              <Sparkles className="w-4 h-4 text-pink-500 group-hover:scale-110 transition-transform" />
+                            </a>
+                          </div>
                           <p className="text-[10px] text-zinc-500 italic mt-2 px-1">
                             This key will be used by all users who haven't set their own personal API key. If left blank, the system's built-in free key will be used.
                           </p>

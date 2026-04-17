@@ -1681,6 +1681,15 @@ export default function App() {
                               >
                                 Select Key
                               </Button>
+                              <a 
+                                href="https://aistudio.google.com/app/apikey" 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-colors group"
+                                title="Get Free API Key"
+                              >
+                                <Sparkles className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                              </a>
                             </div>
                             <p className="text-[8px] text-zinc-500 italic mt-1 px-1">
                               Tip: Leave blank to use the free system key. If you get "Network error", try selecting a paid key.
